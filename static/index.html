@@ -203,9 +203,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  tbody td.num  { color: var(--muted); width: 38px; font-size: 11px; }
-  tbody td.dur  { color: var(--muted); width: 52px; font-size: 11px; text-align: right; }
-  tbody td.qual { width: 80px; }
+  tbody td.num  { color: var(--muted); width: 60px; min-width: 60px; max-width: 60px; font-size: 11px; padding: 9px 6px 9px 22px; }
+  tbody td.dur  { color: var(--muted); width: 64px; min-width: 64px; max-width: 64px; font-size: 11px; text-align: right; padding: 9px 22px 9px 6px; }
+  tbody td.qual { width: 80px; min-width: 80px; max-width: 80px; padding: 9px 8px; }
   .qual-badge {
     font-size: 9px;
     padding: 2px 5px;
@@ -244,6 +244,13 @@
     font-size: 10px;
     color: var(--muted);
     margin-top: 1px;
+  }
+  .now-playing-remain {
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+    font-family: var(--mono);
   }
   .transport-btns {
     display: flex;
@@ -365,8 +372,9 @@
 <header>
   <div class="logo">tidal → hqplayer <span>no roon required</span></div>
   <div class="status-bar">
-    <div><span class="dot" id="dot-tidal"></span><span id="lbl-tidal">tidal</span></div>
-    <div><span class="dot" id="dot-hqp"></span><span id="lbl-hqp">hqplayer</span></div>
+    <div id="tip-tidal" title="Tidal: logged in and ready to stream"><span class="dot" id="dot-tidal"></span><span id="lbl-tidal">tidal</span></div>
+    <div id="tip-hqp" title="HQPlayer: reachable on localhost:4321"><span class="dot" id="dot-hqp"></span><span id="lbl-hqp">hqplayer</span></div>
+    <div id="tip-gpu" title="NVIDIA GPU compute utilization · memory · temperature"><span class="dot" id="dot-gpu"></span><span id="lbl-gpu">gpu</span></div>
   </div>
 </header>
 
@@ -397,11 +405,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:38px">#</th>
+            <th style="width:60px">#</th>
             <th>Title</th>
             <th>Artist</th>
             <th style="width:80px">Quality</th>
-            <th style="width:52px; text-align:right">Time</th>
+            <th style="width:64px; text-align:right">Time</th>
           </tr>
         </thead>
         <tbody id="track-list"></tbody>
@@ -414,6 +422,7 @@
   <div class="transport-info">
     <div class="now-playing-title" id="np-title">—</div>
     <div class="now-playing-sub" id="np-sub">not playing</div>
+    <div class="now-playing-remain" id="np-remain"></div>
   </div>
   <div class="transport-btns">
     <!-- Playback controls -->
@@ -439,6 +448,9 @@ let playingTrackId = null;
 let shuffleEnabled = false;
 let pollTimer      = null;
 let authPollTimer  = null;
+let remainTimer    = null;
+let trackStartTime = null;
+let trackDuration  = null;
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 async function boot() {
@@ -450,9 +462,30 @@ async function boot() {
   document.getElementById('auth-overlay').classList.add('hidden');
   updateHqpStatus(s.hqplayer);
   updateTidalDot(true);
-  loadTab('favorites');
+  await restoreSelection();
   loadRates();
   startStatusPoll();
+}
+
+async function restoreSelection() {
+  const tab     = localStorage.getItem('tidal_tab') || 'favorites';
+  const selType = localStorage.getItem('tidal_sel_type');
+  const selJson = localStorage.getItem('tidal_sel_obj');
+
+  // Activate the saved tab without triggering its click handler
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${tab}`)?.classList.add('active');
+
+  await loadTab(tab);
+
+  if (selType && selJson) {
+    try {
+      const obj = JSON.parse(selJson);
+      if (selType === 'album')    await loadAlbum(obj);
+      if (selType === 'playlist') await loadPlaylist(obj);
+    } catch (e) { /* stale entry — ignore */ }
+  }
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -484,6 +517,9 @@ function copyAuthUrl() {
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function switchTab(tab) {
   currentTab = tab;
+  localStorage.setItem('tidal_tab', tab);
+  localStorage.removeItem('tidal_sel_type');
+  localStorage.removeItem('tidal_sel_obj');
   document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
   if (tab !== 'search') loadTab(tab);
@@ -520,12 +556,16 @@ async function loadTab(tab) {
 }
 
 async function loadAlbum(album) {
+  localStorage.setItem('tidal_sel_type', 'album');
+  localStorage.setItem('tidal_sel_obj', JSON.stringify(album));
   const tracks = await api(`/tidal/album/${album.id}/tracks`);
   setTracks(tracks, album.title, `${album.artist} · ${album.year || ''}`);
   highlightListItem(album.id);
 }
 
 async function loadPlaylist(pl) {
+  localStorage.setItem('tidal_sel_type', 'playlist');
+  localStorage.setItem('tidal_sel_obj', JSON.stringify(pl));
   const tracks = await api(`/tidal/playlist/${pl.id}/tracks`);
   setTracks(tracks, pl.name, `${pl.num_tracks} tracks`);
   highlightListItem(pl.id);
@@ -658,10 +698,16 @@ async function doRestartHqp() {
 
 async function loadRates() {
   try {
-    const rates = await api('/hqplayer/rates');
+    const [rates, settings] = await Promise.all([
+      api('/hqplayer/rates'),
+      api('/hqplayer/settings'),
+    ]);
     const sel = document.getElementById('rate-select');
     if (!rates.length) return;
-    sel.innerHTML = rates.map(r => `<option value="${r.rate}">${fmtRate(r.rate)}</option>`).join('');
+    const current = String(settings.samplerate || '');
+    sel.innerHTML = rates.map(r =>
+      `<option value="${r.rate}" ${r.rate === current ? 'selected' : ''}>${fmtRate(r.rate)}</option>`
+    ).join('');
   } catch (e) { /* HQPlayer not reachable */ }
 }
 
@@ -712,9 +758,38 @@ function updateNowPlaying(track) {
   if (!track) {
     document.getElementById('np-title').textContent = '—';
     document.getElementById('np-sub').textContent = 'not playing';
+    stopRemainTimer();
   } else {
     document.getElementById('np-title').textContent = track.title;
     document.getElementById('np-sub').textContent = `${track.artist} · ${track.album || ''}`;
+    startRemainTimer(track.duration);
+  }
+}
+
+function startRemainTimer(duration) {
+  stopRemainTimer();
+  trackStartTime = Date.now();
+  trackDuration  = duration || 0;
+  updateRemainDisplay();
+  remainTimer = setInterval(updateRemainDisplay, 1000);
+}
+
+function stopRemainTimer() {
+  if (remainTimer) { clearInterval(remainTimer); remainTimer = null; }
+  trackStartTime = null;
+  trackDuration  = null;
+  document.getElementById('np-remain').textContent = '';
+}
+
+function updateRemainDisplay() {
+  if (trackStartTime === null || !trackDuration) return;
+  const elapsed  = (Date.now() - trackStartTime) / 1000;
+  const remain   = Math.max(0, Math.round(trackDuration - elapsed));
+  const el = document.getElementById('np-remain');
+  if (remain === 0) {
+    el.textContent = '';
+  } else {
+    el.textContent = `-${fmtDur(remain)} remaining`;
   }
 }
 
@@ -726,18 +801,45 @@ function startStatusPoll() {
     updateHqpStatus(s.hqplayer);
     updateTidalDot(s.tidal_logged_in);
     await loadQueueState();
+    if (!s.hqplayer.error) {
+      const sel = document.getElementById('rate-select');
+      if (sel.options.length <= 1) await loadRates();
+    }
+    api('/gpu').then(updateGpuStatus).catch(() => null);
   }, 2000);
+}
+
+function updateGpuStatus(g) {
+  const dot = document.getElementById('dot-gpu');
+  const lbl = document.getElementById('lbl-gpu');
+  const tip = document.getElementById('tip-gpu');
+  if (g.error) {
+    dot.className = 'dot';
+    lbl.textContent = 'gpu';
+    tip.title = `GPU: ${g.error}`;
+    return;
+  }
+  const pct = g.gpu_pct;
+  dot.className = 'dot on';
+  dot.style.background = pct > 80 ? 'var(--danger)' : pct > 40 ? 'var(--accent)' : 'var(--accent2)';
+  dot.style.boxShadow  = pct > 80 ? '0 0 6px var(--danger)' : pct > 40 ? '0 0 6px var(--accent)' : '0 0 6px var(--accent2)';
+  lbl.textContent = `gpu ${pct}% · ${g.temp_c}°C`;
+  tip.title = `GPU compute: ${g.gpu_pct}%  |  VRAM: ${g.mem_pct}%  |  Temp: ${g.temp_c}°C`;
 }
 
 function updateHqpStatus(hqp) {
   const dot = document.getElementById('dot-hqp');
   const lbl = document.getElementById('lbl-hqp');
+  const tip = document.getElementById('tip-hqp');
   if (hqp.error) {
     dot.className = 'dot err';
     lbl.textContent = 'hqplayer ✗';
+    tip.title = `HQPlayer: not reachable`;
   } else {
     dot.className = 'dot on';
     lbl.textContent = 'hqplayer';
+    const state = hqp.state === '2' ? 'playing' : hqp.state === '1' ? 'paused' : 'idle';
+    tip.title = `HQPlayer: ${state}  |  in: ${Math.round((hqp.input_fill||0)*100)}%  |  out: ${Math.round((hqp.output_fill||0)*100)}%`;
   }
 }
 

@@ -3,7 +3,7 @@ import random
 import threading
 import time
 
-from tidal_hqp.hqplayer.client import hqp_status
+from tidal_hqp.hqplayer.client import hqp_status, hqp_stop
 
 _queue: dict = {
     "tracks":        [],    # list[dict] — {id, title, artist, album, duration}
@@ -173,7 +173,7 @@ def _do_play(index: int) -> None:
 def _monitor_loop() -> None:
     prev_state = None
     while True:
-        time.sleep(2)
+        time.sleep(0.5)
         try:
             status = hqp_status()
         except Exception:
@@ -191,10 +191,22 @@ def _monitor_loop() -> None:
             prev_state = state
             continue
 
+        if state != prev_state:
+            print(f"[monitor] state {prev_state}→{state}  current={current}  user_stopped={user_stopped}", flush=True)
+
         if prev_state == 2 and state == 0 and not user_stopped and current is not None:
             next_idx = _next_index()
             if next_idx is not None:
+                print(f"[monitor] auto-advance → {next_idx}", flush=True)
                 threading.Thread(target=_do_play, args=(next_idx,), daemon=True).start()
+            else:
+                print("[monitor] end of queue — stopping HQPlayer", flush=True)
+                try:
+                    hqp_stop()
+                except Exception:
+                    pass
+                with _queue_lock:
+                    _queue["user_stopped"] = True
 
         prev_state = state
 

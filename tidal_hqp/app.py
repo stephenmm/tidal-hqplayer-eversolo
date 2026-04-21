@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from tidal_hqp.gpu_routes import router as gpu_router
 from tidal_hqp.hqplayer.client import hqp_status
 from tidal_hqp.hqplayer_routes import router as hqp_router
 from tidal_hqp.playback.queue_routes import router as queue_router
@@ -27,6 +28,7 @@ app = FastAPI(title="tidal-hqp", lifespan=lifespan)
 
 app.include_router(tidal_router)
 app.include_router(playback_router)
+app.include_router(gpu_router)
 app.include_router(queue_router)
 app.include_router(stream_router)
 app.include_router(hqp_router)

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from tidal_hqp.config import TOKEN_FILE
 
 # Module-level singleton — shared across all route modules.
-session = tidalapi.Session(tidalapi.Config(quality=tidalapi.Quality.high_lossless))
+session = tidalapi.Session(tidalapi.Config(quality=tidalapi.Quality.hi_res_lossless))
 
 # Set by /auth/login, cleared on success.
 pending_login: dict | None = None
@@ -49,4 +49,13 @@ def require_login() -> None:
 
 def track_stream_url(track_id: int) -> str:
     track = session.track(track_id)
-    return track.get_url()
+    print(f"[tidal] '{track.name}' — track quality: {track.audio_quality}", flush=True)
+    try:
+        stream = track.get_stream()
+        print(f"[tidal] stream quality: {stream.audio_quality}", flush=True)
+        urls = stream.get_stream_manifest().get_urls()
+        print(f"[tidal] manifest URLs: {len(urls)}", flush=True)
+        return urls[0]
+    except Exception as e:
+        print(f"[tidal] manifest failed ({e}), falling back to get_url()", flush=True)
+        return track.get_url()
