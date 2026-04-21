@@ -1,77 +1,151 @@
-# tidal-hqp
+# tidal-hqplayer-eversolo
 
-Tidal → HQPlayer bridge. No Roon required.
+Stream Tidal audio through HQPlayer Desktop to an Eversolo NAA device — no Roon required.
 
 ## What it does
 
-- Authenticates with Tidal via OAuth (opens browser, saves token)
-- Browses favorites, albums, playlists, search results
-- Sends stream URLs directly to HQPlayer's HTTP control API
-- HQPlayer → Eversolo via NAA as normal
+- Authenticates with Tidal via OAuth device flow (browser-based, token persisted across restarts)
+- Browses favorites, albums, playlists, and search results via a single-page web UI
+- Downloads each track to a local temp file and serves it via a localhost HTTP proxy with full Range request support — eliminating TLS overhead and CDN jitter from HQPlayer's source pipeline
+- Sends the proxy URL to HQPlayer's TCP XML control API (port 4321)
+- HQPlayer upsamples and streams to the Eversolo over NAA as normal
+- Exposes a `/hqplayer/configure` API to patch HQPlayer's `settings.xml` and relaunch it — useful for changing output sample rate and NAA buffer size without touching the GUI
+
+## Architecture
+
+```
+Browser UI  ──POST /play──▶  FastAPI server  ──downloads──▶  Tidal CDN
+                                   │
+                          serves localhost HTTP
+                                   │
+                             HQPlayer Desktop  ──NAA──▶  Eversolo DAC
+```
+
+### Package layout
+
+```
+tidal_hqp/
+  config.py              — all env vars (host, port, paths, prebuffer size)
+  app.py                 — FastAPI app, router registration, lifespan
+  hqplayer/
+    client.py            — TCP XML client: hqp_send, hqp_play_url, hqp_stop, hqp_status
+    configure.py         — close HQPlayer, patch settings.xml, relaunch
+  tidal/
+    session.py           — OAuth singleton, load/save token, require_login
+    browse.py            — fmt_track, fmt_album formatters
+    routes.py            — /auth/* and /tidal/* routes
+  streaming/
+    state.py             — _active download dict + kill_active()
+    downloader.py        — background requests download thread
+    proxy.py             — /stream/{id} with HTTP Range support
+  playback/
+    routes.py            — /play, /stop (glues tidal + hqplayer + streaming)
+  hqplayer_routes.py     — /hqplayer/configure, /hqplayer/settings
+static/
+  index.html             — single-file frontend, no build step
+tests/                   — 27 pytest tests, no real credentials needed
+server.py                — 4-line entry point
+```
 
 ## Requirements
 
-- Python 3.9+
-- HQPlayer Desktop running on Windows (same machine or LAN)
+- Python 3.12+
+- HQPlayer Desktop 5 running on Windows
+- Eversolo (or any NAA-compatible device) configured as HQPlayer's network output
 - Tidal HiFi or Tidal Max subscription
 
 ## Setup
 
+### Conda (recommended)
+
+```bash
+conda env create -f environment.yml
+conda activate tidal-hqp
 ```
+
+### pip
+
+```bash
 pip install fastapi uvicorn tidalapi requests python-dotenv
 ```
 
-Copy `.env.example` to `.env` and edit:
+### Configuration
 
-```
-HQPLAYER_HOST=localhost   # or IP if HQPlayer is on another machine
-HQPLAYER_PORT=4321        # HQPlayer Desktop default control port
+Copy `.env.example` to `.env`:
+
+```env
+HQPLAYER_HOST=localhost
+HQPLAYER_PORT=4321
+TOKEN_FILE=tidal_token.json
+HQPLAYER_EXE=C:/Program Files/Signalyst/HQPlayer 5 Desktop/HQPlayer5Desktop.exe
 ```
 
 ## Run
 
-```
+```bash
 python server.py
 ```
 
-Open http://localhost:8080 — it will walk you through Tidal login on first run.
+Open **http://localhost:8080** — on first run it will walk you through Tidal OAuth login.
 
-## HQPlayer setup (one-time, in HQPlayer Desktop)
+## WiFi / NAA buffer tuning
 
-1. In HQPlayer: enable "Allow control from network" (toolbar button)
-2. Set output device to your Eversolo NAA endpoint (Settings → Output → Network Audio)
-3. Configure your filters/upsampling as desired — the script never touches those settings
+HQPlayer upsamples audio and streams it to the Eversolo over the local network. At high output rates (705.6 kHz+) this requires ~45 Mbps of sustained throughput — which WiFi can struggle with. If you hear stuttering:
 
-## How the HQPlayer API works
+1. **Lower the output rate** via the API:
+   ```bash
+   curl -X POST http://localhost:8080/hqplayer/configure \
+     -H "Content-Type: application/json" \
+     -d '{"samplerate": 176400}'
+   ```
+   This closes HQPlayer, edits `settings.xml`, and relaunches it automatically.
 
-HQPlayer Desktop listens on port 4321 for XML-over-HTTP commands.
-The key endpoints used here:
+2. **Increase the NAA buffer** (`period_time`) for more jitter tolerance:
+   ```bash
+   curl -X POST http://localhost:8080/hqplayer/configure \
+     -H "Content-Type: application/json" \
+     -d '{"samplerate": 176400, "period_time": 100000}'
+   ```
 
-- `POST /api/Play`  body: `<Play><Url>https://...tidal-stream-url...</Url></Play>`
-- `POST /api/Stop`
-- `GET  /api/Status`
+3. Read current settings without changing anything:
+   ```bash
+   curl http://localhost:8080/hqplayer/settings
+   ```
 
-**Important:** The exact XML schema can vary between HQPlayer versions.
-If playback doesn't start, inspect what HQPlayer actually expects by looking at
-the `hqp-control` source that Signalyst publishes on their downloads page.
-Run `curl http://localhost:4321/api/Status` to verify the API is reachable.
+Confirmed stable rates over WiFi in testing: **176.4 kHz** (11 Mbps). Ethernet will support 705.6 kHz comfortably.
 
-## Cursor/AI instructions
+## HQPlayer TCP XML API
 
-The three files an AI needs to know about:
+HQPlayer Desktop listens on TCP port 4321 for raw XML commands. Key commands used:
 
-- `server.py` — all backend logic, well commented
-- `static/index.html` — entire frontend, no build step
-- `.env` — config
+| Command | Purpose |
+|---|---|
+| `<PlaylistAdd uri="..." queued="0" clear="1" />` | Load a URL into the playlist |
+| `<Play />` | Start playback |
+| `<Stop />` | Stop playback |
+| `<Status subscribe="0" />` | Get playback state, buffer fill, process speed |
+| `<SetRate value="176400" />` | Change output sample rate live |
+| `<GetFilters />` | List available DSP filters |
+| `<Quit />` | Close HQPlayer |
 
-The HQPlayer API section in server.py has a comment flagging the one thing
-most likely to need adjustment: the exact XML body for the Play command.
-Everything else (tidalapi, FastAPI routing) has stable public docs.
+The API uses raw TCP sockets (not HTTP). Protocol reverse-engineered from the [hqpwv](https://github.com/zeropointnine/hqpwv) open-source client.
+
+## Running tests
+
+```bash
+pip install pytest httpx pytest-mock
+pytest
+```
+
+All 27 tests run without real Tidal credentials or a live HQPlayer instance — sockets and sessions are fully mocked.
+
+```bash
+# With coverage
+python -m coverage run -m pytest && python -m coverage report
+```
 
 ## Known limitations
 
-- Tidal's stream URLs are time-limited (typically ~30 min). For long albums
-  the URL should be refreshed per-track, which is how the current code works.
-- HQPlayer must be running and have "Allow control from network" enabled.
-- Queue/next-track logic is not implemented — it plays one track at a time.
-  Add a `currentIndex` + `autoAdvance` flag in the frontend to extend this.
+- Queue/next-track is not implemented — plays one track at a time
+- HQPlayer must be running before the first `/play` call (unless using `/hqplayer/configure` which handles launch)
+- Tidal stream URLs are time-limited; the server fetches a fresh URL per play request
