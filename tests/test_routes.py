@@ -102,6 +102,40 @@ def test_play_returns_ok_and_sets_active(client, logged_in_session, monkeypatch)
     assert "/stream/42" in call_url
 
 
+def test_play_superseded_does_not_call_hqp(monkeypatch):
+    """If a newer play_track_id starts while prebuffering, the old one must not
+    call hqp_play_url — otherwise the wrong track ends up in HQPlayer."""
+    import tidal_hqp.playback.player as pp
+    import tidal_hqp.streaming.state as st
+
+    mock_play_url = MagicMock()
+    monkeypatch.setattr(pp, "hqp_play_url", mock_play_url)
+    monkeypatch.setattr(pp, "hqp_stop", lambda: None)
+    monkeypatch.setattr(pp, "track_stream_url", MagicMock(return_value="https://cdn.tidal.com/fake"))
+
+    import tempfile, os
+    original_tmp_path = None
+
+    def slow_download(url, path):
+        nonlocal original_tmp_path
+        original_tmp_path = path
+        # Write prebuffer immediately, then simulate a second play taking over
+        with open(path, "wb") as f:
+            f.write(b"\x00" * (8 * 1024 * 1024 + 1))
+        with st._active_lock:
+            st._active["content_length"] = 8 * 1024 * 1024 + 1
+        # Simulate a second play_track_id replacing _active["tmp_path"]
+        with st._active_lock:
+            st._active["tmp_path"] = "/newer/track.flac"
+
+    monkeypatch.setattr(pp, "download", slow_download)
+    monkeypatch.setattr(pp, "kill_active", lambda: None)
+
+    pp.play_track_id(99)
+
+    mock_play_url.assert_not_called()
+
+
 # ── /stop ─────────────────────────────────────────────────────────────────────
 
 def test_stop_calls_hqp(client, mock_hqp_send):

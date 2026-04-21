@@ -42,6 +42,12 @@ def play_track_id(track_id: int) -> None:
             break
         time.sleep(0.05)
 
+    # Abort if a newer play_track_id call has already taken over.
+    with _active_lock:
+        if _active.get("tmp_path") != tmp_path:
+            print(f"[player] track {track_id} superseded, aborting", flush=True)
+            return
+
     hqp_play_url(f"http://{PROXY_HOST}:{PROXY_PORT}/stream/{track_id}")
 
 
