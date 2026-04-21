@@ -12,6 +12,9 @@ session = tidalapi.Session(tidalapi.Config(quality=tidalapi.Quality.hi_res_lossl
 # Set by /auth/login, cleared on success.
 pending_login: dict | None = None
 
+# Updated each time a track URL is resolved.
+last_stream_quality: str | None = None
+
 
 def save_token() -> None:
     data = {
@@ -48,14 +51,14 @@ def require_login() -> None:
 
 
 def track_stream_url(track_id: int) -> str:
+    global last_stream_quality
     track = session.track(track_id)
-    print(f"[tidal] '{track.name}' — track quality: {track.audio_quality}", flush=True)
+    # Read quality for display only — manifest URLs may be DASH segments
+    # and are not directly downloadable as FLAC.
     try:
         stream = track.get_stream()
-        print(f"[tidal] stream quality: {stream.audio_quality}", flush=True)
-        urls = stream.get_stream_manifest().get_urls()
-        print(f"[tidal] manifest URLs: {len(urls)}", flush=True)
-        return urls[0]
-    except Exception as e:
-        print(f"[tidal] manifest failed ({e}), falling back to get_url()", flush=True)
-        return track.get_url()
+        last_stream_quality = stream.audio_quality
+    except Exception:
+        last_stream_quality = track.audio_quality
+    print(f"[tidal] '{track.name}' — quality: {last_stream_quality}", flush=True)
+    return track.get_url()

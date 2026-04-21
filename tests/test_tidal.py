@@ -90,71 +90,84 @@ def test_session_configured_for_hi_res():
     )
 
 
-def test_track_stream_url_uses_manifest(monkeypatch):
-    """track_stream_url should use get_stream() manifest — not the legacy get_url()."""
+def test_track_stream_url_always_uses_get_url(monkeypatch):
+    """track_stream_url must use get_url() for the download URL.
+
+    Manifest URLs from get_stream() may be MPEG-DASH segments and are not
+    directly downloadable as FLAC — get_url() returns a direct CDN link.
+    """
     import tidal_hqp.tidal.session as ts
 
-    fake_url = "https://cdn.tidal.com/hires/track.flac"
-    manifest = MagicMock()
-    manifest.get_urls.return_value = [fake_url]
-
+    direct_url = "https://cdn.tidal.com/lossless/track.flac"
     stream = MagicMock()
     stream.audio_quality = "HI_RES_LOSSLESS"
-    stream.get_stream_manifest.return_value = manifest
 
     fake_track = MagicMock()
     fake_track.name = "Test Track"
     fake_track.audio_quality = "HI_RES_LOSSLESS"
     fake_track.get_stream.return_value = stream
+    fake_track.get_url.return_value = direct_url
 
     monkeypatch.setattr(ts.session, "track", lambda _id: fake_track)
 
     url = ts.track_stream_url(42)
 
-    fake_track.get_stream.assert_called_once()
-    manifest.get_urls.assert_called_once()
-    fake_track.get_url.assert_not_called()
-    assert url == fake_url
+    fake_track.get_url.assert_called_once()
+    assert url == direct_url
 
 
-def test_track_stream_url_falls_back_to_get_url(monkeypatch):
-    """If get_stream() raises, fall back to get_url() rather than crashing."""
+def test_track_stream_url_uses_get_stream_for_quality_only(monkeypatch):
+    """get_stream() is called for the quality label but its URLs are never used."""
     import tidal_hqp.tidal.session as ts
 
-    fallback_url = "https://cdn.tidal.com/lossless/track.flac"
+    stream = MagicMock()
+    stream.audio_quality = "HI_RES_LOSSLESS"
+
+    fake_track = MagicMock()
+    fake_track.name = "Test Track"
+    fake_track.audio_quality = "HI_RES_LOSSLESS"
+    fake_track.get_stream.return_value = stream
+    fake_track.get_url.return_value = "https://cdn.tidal.com/track.flac"
+
+    monkeypatch.setattr(ts.session, "track", lambda _id: fake_track)
+    ts.track_stream_url(42)
+
+    fake_track.get_stream.assert_called_once()
+    stream.get_stream_manifest.assert_not_called()
+    assert ts.last_stream_quality == "HI_RES_LOSSLESS"
+
+
+def test_track_stream_url_quality_falls_back_when_stream_fails(monkeypatch):
+    """If get_stream() raises, quality falls back to track.audio_quality."""
+    import tidal_hqp.tidal.session as ts
 
     fake_track = MagicMock()
     fake_track.name = "Test Track"
     fake_track.audio_quality = "LOSSLESS"
-    fake_track.get_stream.side_effect = Exception("manifest unavailable")
-    fake_track.get_url.return_value = fallback_url
+    fake_track.get_stream.side_effect = Exception("unavailable")
+    fake_track.get_url.return_value = "https://cdn.tidal.com/track.flac"
 
     monkeypatch.setattr(ts.session, "track", lambda _id: fake_track)
+    ts.track_stream_url(42)
 
-    url = ts.track_stream_url(42)
-
-    assert url == fallback_url
     fake_track.get_url.assert_called_once()
+    assert ts.last_stream_quality == "LOSSLESS"
 
 
 def test_track_stream_url_logs_quality(monkeypatch, capsys):
     """Quality info must be printed so it appears in server logs."""
     import tidal_hqp.tidal.session as ts
 
-    manifest = MagicMock()
-    manifest.get_urls.return_value = ["https://cdn.tidal.com/hires/track.flac"]
-
     stream = MagicMock()
     stream.audio_quality = "HI_RES_LOSSLESS"
-    stream.get_stream_manifest.return_value = manifest
 
     fake_track = MagicMock()
     fake_track.name = "Hi-Res Song"
     fake_track.audio_quality = "HI_RES_LOSSLESS"
     fake_track.get_stream.return_value = stream
+    fake_track.get_url.return_value = "https://cdn.tidal.com/track.flac"
 
     monkeypatch.setattr(ts.session, "track", lambda _id: fake_track)
     ts.track_stream_url(99)
 
-    out = capsys.readouterr().out
-    assert "HI_RES_LOSSLESS" in out
+    assert "HI_RES_LOSSLESS" in capsys.readouterr().out

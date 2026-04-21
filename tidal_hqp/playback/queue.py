@@ -19,12 +19,14 @@ _queue_lock = threading.Lock()
 # ── Public helpers (called by routes) ────────────────────────────────────────
 
 def get_state() -> dict:
+    import tidal_hqp.tidal.session as _ts
     with _queue_lock:
         return {
-            "tracks":        list(_queue["tracks"]),
-            "current_index": _queue["current_index"],
-            "shuffle":       _queue["shuffle"],
-            "loading":       _queue["loading"],
+            "tracks":         list(_queue["tracks"]),
+            "current_index":  _queue["current_index"],
+            "shuffle":        _queue["shuffle"],
+            "loading":        _queue["loading"],
+            "stream_quality": _ts.last_stream_quality,
         }
 
 

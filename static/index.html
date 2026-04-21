@@ -245,6 +245,21 @@
     color: var(--muted);
     margin-top: 1px;
   }
+  .stream-quality-badge {
+    font-size: 9px;
+    font-family: var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .stream-quality-badge.hires {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
   .now-playing-remain {
     font-size: 11px;
     color: var(--accent);
@@ -420,7 +435,10 @@
 
 <footer>
   <div class="transport-info">
-    <div class="now-playing-title" id="np-title">—</div>
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <div class="now-playing-title" id="np-title">—</div>
+      <span class="stream-quality-badge" id="np-quality"></span>
+    </div>
     <div class="now-playing-sub" id="np-sub">not playing</div>
     <div class="now-playing-remain" id="np-remain"></div>
   </div>
@@ -643,7 +661,7 @@ async function playTrack(index) {
   if (!track) return;
   playingTrackId = track.id;
   renderTrackTable(currentTracks);
-  updateNowPlaying(track);
+  updateNowPlaying(track, null);
   await api('/queue', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -749,20 +767,33 @@ async function loadQueueState() {
     if (newId !== playingTrackId) {
       playingTrackId = newId;
       renderTrackTable(currentTracks);
-      updateNowPlaying(track);
+      updateNowPlaying(track, q.stream_quality);
+    } else if (q.stream_quality) {
+      // Update badge even if track didn't change (quality resolves after track starts)
+      const badge = document.getElementById('np-quality');
+      if (!badge.textContent) updateNowPlaying(track, q.stream_quality);
     }
   } catch (e) { /* ignore */ }
 }
 
-function updateNowPlaying(track) {
+function updateNowPlaying(track, quality) {
+  const badge = document.getElementById('np-quality');
   if (!track) {
     document.getElementById('np-title').textContent = '—';
     document.getElementById('np-sub').textContent = 'not playing';
+    badge.textContent = '';
+    badge.className = 'stream-quality-badge';
     stopRemainTimer();
   } else {
     document.getElementById('np-title').textContent = track.title;
     document.getElementById('np-sub').textContent = `${track.artist} · ${track.album || ''}`;
     startRemainTimer(track.duration);
+  }
+  if (quality) {
+    const hires = quality.toUpperCase().includes('HI_RES');
+    badge.textContent = hires ? 'Hi-Res' : quality === 'LOSSLESS' ? 'HiFi' : quality;
+    badge.className = 'stream-quality-badge' + (hires ? ' hires' : '');
+    badge.title = quality;
   }
 }
 
