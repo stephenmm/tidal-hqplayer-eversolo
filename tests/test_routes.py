@@ -72,15 +72,16 @@ def test_play_requires_login(client):
 
 
 def test_play_returns_ok_and_sets_active(client, logged_in_session, monkeypatch):
-    import tidal_hqp.tidal.session as ts
+    import time
     import tidal_hqp.hqplayer.client as hc
     import tidal_hqp.streaming.state as st
 
-    monkeypatch.setattr(ts, "track_stream_url", MagicMock(return_value="https://cdn.tidal.com/fake"))
     monkeypatch.setattr(hc, "hqp_send", MagicMock(return_value="<Stop />"))
-    # Patch where it's used (imported name in routes), not where it's defined
-    import tidal_hqp.playback.routes as pr
-    monkeypatch.setattr(pr, "hqp_play_url", MagicMock())
+    # Patch on player.py — that's where the names are imported at module level
+    import tidal_hqp.playback.player as pp
+    mock_play_url = MagicMock()
+    monkeypatch.setattr(pp, "hqp_play_url", mock_play_url)
+    monkeypatch.setattr(pp, "track_stream_url", MagicMock(return_value="https://cdn.tidal.com/fake"))
 
     # Fake download: write 8 MB immediately so prebuffer is satisfied
     def fake_download(url, path):
@@ -89,13 +90,15 @@ def test_play_returns_ok_and_sets_active(client, logged_in_session, monkeypatch)
         with st._active_lock:
             st._active["content_length"] = 8 * 1024 * 1024 + 1
 
-    monkeypatch.setattr("tidal_hqp.playback.routes.download", fake_download)
+    monkeypatch.setattr(pp, "download", fake_download)
 
     resp = client.post("/play", json={"track_id": 42})
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
-    pr.hqp_play_url.assert_called_once()
-    call_url = pr.hqp_play_url.call_args[0][0]
+    # /play dispatches a background thread; wait for it to complete
+    time.sleep(0.5)
+    mock_play_url.assert_called_once()
+    call_url = mock_play_url.call_args[0][0]
     assert "/stream/42" in call_url
 
 

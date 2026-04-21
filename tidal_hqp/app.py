@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from tidal_hqp.hqplayer.client import hqp_status
 from tidal_hqp.hqplayer_routes import router as hqp_router
+from tidal_hqp.playback.queue_routes import router as queue_router
 from tidal_hqp.playback.routes import router as playback_router
 from tidal_hqp.streaming.proxy import router as stream_router
 from tidal_hqp.tidal.routes import router as tidal_router
@@ -26,6 +27,7 @@ app = FastAPI(title="tidal-hqp", lifespan=lifespan)
 
 app.include_router(tidal_router)
 app.include_router(playback_router)
+app.include_router(queue_router)
 app.include_router(stream_router)
 app.include_router(hqp_router)
 

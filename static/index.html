@@ -73,7 +73,7 @@
     grid-template-columns: 260px 1fr;
     gap: 0;
     overflow: hidden;
-    height: calc(100vh - 110px);
+    height: calc(100vh - 128px);
   }
 
   /* ── Sidebar ── */
@@ -219,14 +219,16 @@
   footer {
     background: var(--surface);
     border-top: 1px solid var(--border);
-    padding: 12px 28px;
+    padding: 10px 28px;
     display: flex;
     align-items: center;
     gap: 20px;
-    height: 60px;
+    min-height: 78px;
+    flex-wrap: wrap;
   }
   .transport-info {
     flex: 1;
+    min-width: 160px;
     overflow: hidden;
   }
   .now-playing-title {
@@ -243,22 +245,48 @@
     color: var(--muted);
     margin-top: 1px;
   }
-  .transport-btns { display: flex; gap: 8px; }
+  .transport-btns {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .transport-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 4px;
+  }
   .btn {
     background: none;
     border: 1px solid var(--border);
     color: var(--text);
     font-family: var(--mono);
     font-size: 11px;
-    padding: 6px 14px;
+    padding: 6px 12px;
     cursor: pointer;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     transition: all 0.15s;
   }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.primary { border-color: var(--accent); color: var(--accent); }
-  .btn.danger  { border-color: var(--danger); color: var(--danger); }
+  .btn:hover    { border-color: var(--accent); color: var(--accent); }
+  .btn.primary  { border-color: var(--accent); color: var(--accent); }
+  .btn.danger   { border-color: var(--danger); color: var(--danger); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+  select.rate-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 8px;
+    cursor: pointer;
+    outline: none;
+    letter-spacing: 0.04em;
+    transition: border-color 0.15s;
+  }
+  select.rate-select:focus { border-color: var(--accent); }
 
   /* ── Auth overlay ── */
   #auth-overlay {
@@ -388,7 +416,18 @@
     <div class="now-playing-sub" id="np-sub">not playing</div>
   </div>
   <div class="transport-btns">
+    <!-- Playback controls -->
+    <button class="btn" onclick="doSkipPrev()" title="Previous track">Prev</button>
     <button class="btn danger" onclick="doStop()">Stop</button>
+    <button class="btn" onclick="doSkip()" title="Next track">Next</button>
+    <button class="btn" id="btn-shuffle" onclick="doToggleShuffle()" title="Toggle shuffle">Shuffle</button>
+    <div class="transport-sep"></div>
+    <!-- HQPlayer controls -->
+    <button class="btn" id="btn-restart-hqp" onclick="doRestartHqp()" title="Close and relaunch HQPlayer">Restart HQP</button>
+    <select class="rate-select" id="rate-select" title="Output sample rate">
+      <option value="">rate…</option>
+    </select>
+    <button class="btn" id="btn-apply-rate" onclick="doSetRate()" title="Apply rate and restart HQPlayer">Apply</button>
   </div>
 </footer>
 
@@ -397,6 +436,7 @@
 let currentTab     = 'favorites';
 let currentTracks  = [];
 let playingTrackId = null;
+let shuffleEnabled = false;
 let pollTimer      = null;
 let authPollTimer  = null;
 
@@ -411,6 +451,7 @@ async function boot() {
   updateHqpStatus(s.hqplayer);
   updateTidalDot(true);
   loadTab('favorites');
+  loadRates();
   startStatusPoll();
 }
 
@@ -423,9 +464,7 @@ async function startLogin() {
   box.textContent = res.login_url;
   box._url = res.login_url;
   document.getElementById('auth-url-wrap').style.display = 'block';
-  // Open automatically
   window.open(res.login_url, '_blank');
-  // Poll for completion
   authPollTimer = setInterval(async () => {
     const s = await api('/auth/status');
     if (s.logged_in) {
@@ -438,7 +477,7 @@ async function startLogin() {
 function copyAuthUrl() {
   const box = document.getElementById('auth-url-box');
   navigator.clipboard.writeText(box._url || box.textContent);
-  box.textContent = '✓ copied — paste in browser';
+  box.textContent = 'copied — paste in browser';
   setTimeout(() => { box.textContent = box._url; }, 2000);
 }
 
@@ -524,7 +563,6 @@ function renderList(items, mapper) {
       ${m.badge ? `<div class="badge">${m.badge}</div>` : ''}
     </div>`;
   }).join('');
-  // store callbacks
   pane._callbacks = items.map(mapper);
 }
 
@@ -565,17 +603,119 @@ async function playTrack(index) {
   if (!track) return;
   playingTrackId = track.id;
   renderTrackTable(currentTracks);
-  document.getElementById('np-title').textContent = track.title;
-  document.getElementById('np-sub').textContent = `${track.artist} · ${track.album}`;
-  await api('/play', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({track_id: track.id}) });
+  updateNowPlaying(track);
+  await api('/queue', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ tracks: currentTracks, play_index: index }),
+  });
 }
 
 async function doStop() {
   playingTrackId = null;
   renderTrackTable(currentTracks);
-  document.getElementById('np-title').textContent = '—';
-  document.getElementById('np-sub').textContent = 'not playing';
-  await api('/stop', {method:'POST'});
+  updateNowPlaying(null);
+  await api('/stop', {method: 'POST'});
+}
+
+async function doSkip() {
+  await api('/queue/skip', {method: 'POST'});
+}
+
+async function doSkipPrev() {
+  await api('/queue/previous', {method: 'POST'});
+}
+
+async function doToggleShuffle() {
+  shuffleEnabled = !shuffleEnabled;
+  updateShuffleBtn();
+  await api('/queue/shuffle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled: shuffleEnabled }),
+  });
+}
+
+function updateShuffleBtn() {
+  const btn = document.getElementById('btn-shuffle');
+  btn.className = shuffleEnabled ? 'btn primary' : 'btn';
+}
+
+async function doRestartHqp() {
+  const btn = document.getElementById('btn-restart-hqp');
+  btn.textContent = 'restarting…';
+  btn.disabled = true;
+  try {
+    await api('/hqplayer/restart', {method: 'POST'});
+    setTimeout(loadRates, 6000);
+  } catch (e) {
+    console.error('restart failed', e);
+  } finally {
+    btn.textContent = 'Restart HQP';
+    btn.disabled = false;
+  }
+}
+
+async function loadRates() {
+  try {
+    const rates = await api('/hqplayer/rates');
+    const sel = document.getElementById('rate-select');
+    if (!rates.length) return;
+    sel.innerHTML = rates.map(r => `<option value="${r.rate}">${fmtRate(r.rate)}</option>`).join('');
+  } catch (e) { /* HQPlayer not reachable */ }
+}
+
+async function doSetRate() {
+  const sel = document.getElementById('rate-select');
+  const hz = parseInt(sel.value);
+  if (!hz) return;
+  const btn = document.getElementById('btn-apply-rate');
+  btn.textContent = 'applying…';
+  btn.disabled = true;
+  try {
+    await api('/hqplayer/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ samplerate: hz }),
+    });
+    setTimeout(loadRates, 6000);
+  } catch (e) {
+    console.error('configure failed', e);
+  } finally {
+    btn.textContent = 'Apply';
+    btn.disabled = false;
+  }
+}
+
+// ── Queue state sync ────────────────────────────────────────────────────────
+async function loadQueueState() {
+  try {
+    const q = await api('/queue');
+    // Sync shuffle toggle
+    if (q.shuffle !== shuffleEnabled) {
+      shuffleEnabled = q.shuffle;
+      updateShuffleBtn();
+    }
+    // Sync now-playing from queue (catches auto-advance)
+    const track = (q.current_index !== null && q.tracks && q.tracks.length)
+      ? q.tracks[q.current_index] : null;
+    const newId = track ? track.id : null;
+    if (newId !== playingTrackId) {
+      playingTrackId = newId;
+      renderTrackTable(currentTracks);
+      updateNowPlaying(track);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function updateNowPlaying(track) {
+  if (!track) {
+    document.getElementById('np-title').textContent = '—';
+    document.getElementById('np-sub').textContent = 'not playing';
+  } else {
+    document.getElementById('np-title').textContent = track.title;
+    document.getElementById('np-sub').textContent = `${track.artist} · ${track.album || ''}`;
+  }
 }
 
 // ── Status polling ──────────────────────────────────────────────────────────
@@ -585,7 +725,8 @@ function startStatusPoll() {
     if (!s) return;
     updateHqpStatus(s.hqplayer);
     updateTidalDot(s.tidal_logged_in);
-  }, 5000);
+    await loadQueueState();
+  }, 2000);
 }
 
 function updateHqpStatus(hqp) {
@@ -616,6 +757,11 @@ function fmtQuality(q) {
   const map = { 'hi_res_lossless': 'MAX', 'lossless': 'HiFi', 'high': 'High', 'low': 'Low' };
   for (const [k, v] of Object.entries(map)) if (q.toLowerCase().includes(k.toLowerCase())) return v;
   return q.slice(0, 4).toUpperCase();
+}
+function fmtRate(hz) {
+  const n = parseInt(hz);
+  if (!n) return hz;
+  return `${(n / 1000).toFixed(1)} kHz`;
 }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
