@@ -1,0 +1,25 @@
+# secrets & session
+.env
+tidal_token.json
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+*.tmp
+
+# test / coverage artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
+# temp audio files
+*.flac
+
+# IDE / tooling
+.claude/
+*.zip

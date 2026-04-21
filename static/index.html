@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tidal → hqplayer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0c0c0e;
+    --surface:   #141418;
+    --border:    #232328;
+    --accent:    #c8a96e;
+    --accent2:   #5a7a6a;
+    --text:      #d4d0c8;
+    --muted:     #5a5850;
+    --playing:   #c8a96e;
+    --danger:    #8a4040;
+    --mono:      'Space Mono', monospace;
+    --serif:     'Instrument Serif', serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .logo {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-style: italic;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .logo span { color: var(--muted); font-size: 13px; font-family: var(--mono); font-style: normal; margin-left: 10px; }
+
+  .status-bar {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    margin-right: 5px;
+    transition: background 0.3s;
+  }
+  .dot.on  { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .dot.err { background: var(--danger); }
+
+  /* ── Layout ── */
+  main {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 0;
+    overflow: hidden;
+    height: calc(100vh - 110px);
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .search-wrap {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap input::placeholder { color: var(--muted); }
+
+  .nav-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-tab {
+    flex: 1;
+    padding: 9px 4px;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .nav-tab:hover  { color: var(--text); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .list-pane {
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .list-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .list-item:hover { background: rgba(200,169,110,0.05); }
+  .list-item.active { background: rgba(200,169,110,0.1); border-left: 2px solid var(--accent); }
+  .list-item .title { color: var(--text); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-item .sub   { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-item .badge { font-size: 9px; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ── Track list (right panel) ── */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .panel-header h2 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--text);
+  }
+  .panel-header .meta { color: var(--muted); font-size: 11px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow-y: auto;
+  }
+  .track-table-wrap { overflow-y: auto; flex: 1; }
+
+  thead th {
+    text-align: left;
+    padding: 9px 22px;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+  tbody tr {
+    cursor: pointer;
+    border-bottom: 1px solid rgba(35,35,40,0.6);
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: rgba(200,169,110,0.05); }
+  tbody tr.playing { color: var(--playing); background: rgba(200,169,110,0.07); }
+  tbody td {
+    padding: 9px 22px;
+    font-size: 12px;
+    color: var(--text);
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  tbody td.num  { color: var(--muted); width: 38px; font-size: 11px; }
+  tbody td.dur  { color: var(--muted); width: 52px; font-size: 11px; text-align: right; }
+  tbody td.qual { width: 80px; }
+  .qual-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── Transport bar ── */
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    height: 60px;
+  }
+  .transport-info {
+    flex: 1;
+    overflow: hidden;
+  }
+  .now-playing-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .now-playing-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .transport-btns { display: flex; gap: 8px; }
+  .btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  .btn.danger  { border-color: var(--danger); color: var(--danger); }
+
+  /* ── Auth overlay ── */
+  #auth-overlay {
+    position: fixed; inset: 0;
+    background: rgba(12,12,14,0.96);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    flex-direction: column;
+    gap: 20px;
+  }
+  #auth-overlay.hidden { display: none; }
+  .auth-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 40px 48px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+  .auth-box h2 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 26px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .auth-box p { color: var(--muted); font-size: 12px; line-height: 1.7; margin-bottom: 24px; }
+  .auth-url {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text);
+    word-break: break-all;
+    margin-bottom: 20px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .auth-url:hover { border-color: var(--accent); }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    padding: 48px 22px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth overlay -->
+<div id="auth-overlay" class="hidden">
+  <div class="auth-box">
+    <h2>tidal → hqplayer</h2>
+    <p id="auth-msg">Sign in to your Tidal account to continue.</p>
+    <div id="auth-url-wrap" style="display:none">
+      <div class="auth-url" id="auth-url-box" onclick="copyAuthUrl()">Click to copy login URL</div>
+      <p style="margin-bottom:0"><span class="spinner"></span> waiting for authorization…</p>
+    </div>
+    <button class="btn primary" id="auth-btn" onclick="startLogin()">Connect Tidal</button>
+  </div>
+</div>
+
+<!-- App shell -->
+<header>
+  <div class="logo">tidal → hqplayer <span>no roon required</span></div>
+  <div class="status-bar">
+    <div><span class="dot" id="dot-tidal"></span><span id="lbl-tidal">tidal</span></div>
+    <div><span class="dot" id="dot-hqp"></span><span id="lbl-hqp">hqplayer</span></div>
+  </div>
+</header>
+
+<main>
+  <!-- Sidebar -->
+  <aside>
+    <div class="search-wrap">
+      <input type="text" id="search-input" placeholder="search tracks, albums…" onkeydown="onSearchKey(event)">
+    </div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" onclick="switchTab('favorites')" id="tab-favorites">Favorites</div>
+      <div class="nav-tab" onclick="switchTab('albums')" id="tab-albums">Albums</div>
+      <div class="nav-tab" onclick="switchTab('playlists')" id="tab-playlists">Playlists</div>
+      <div class="nav-tab" onclick="switchTab('search')" id="tab-search">Search</div>
+    </div>
+    <div class="list-pane" id="list-pane">
+      <div class="empty-state">loading…</div>
+    </div>
+  </aside>
+
+  <!-- Right panel: track list -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2 id="panel-title">Favorite Tracks</h2>
+      <span class="meta" id="panel-meta"></span>
+    </div>
+    <div class="track-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:38px">#</th>
+            <th>Title</th>
+            <th>Artist</th>
+            <th style="width:80px">Quality</th>
+            <th style="width:52px; text-align:right">Time</th>
+          </tr>
+        </thead>
+        <tbody id="track-list"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="transport-info">
+    <div class="now-playing-title" id="np-title">—</div>
+    <div class="now-playing-sub" id="np-sub">not playing</div>
+  </div>
+  <div class="transport-btns">
+    <button class="btn danger" onclick="doStop()">Stop</button>
+  </div>
+</footer>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentTab     = 'favorites';
+let currentTracks  = [];
+let playingTrackId = null;
+let pollTimer      = null;
+let authPollTimer  = null;
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function boot() {
+  const s = await api('/status');
+  if (!s.tidal_logged_in) {
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('auth-overlay').classList.add('hidden');
+  updateHqpStatus(s.hqplayer);
+  updateTidalDot(true);
+  loadTab('favorites');
+  startStatusPoll();
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+async function startLogin() {
+  document.getElementById('auth-btn').style.display = 'none';
+  document.getElementById('auth-msg').textContent = 'Open this URL in your browser to authorize Tidal:';
+  const res = await api('/auth/login', {method:'POST'});
+  const box = document.getElementById('auth-url-box');
+  box.textContent = res.login_url;
+  box._url = res.login_url;
+  document.getElementById('auth-url-wrap').style.display = 'block';
+  // Open automatically
+  window.open(res.login_url, '_blank');
+  // Poll for completion
+  authPollTimer = setInterval(async () => {
+    const s = await api('/auth/status');
+    if (s.logged_in) {
+      clearInterval(authPollTimer);
+      boot();
+    }
+  }, 2000);
+}
+
+function copyAuthUrl() {
+  const box = document.getElementById('auth-url-box');
+  navigator.clipboard.writeText(box._url || box.textContent);
+  box.textContent = '✓ copied — paste in browser';
+  setTimeout(() => { box.textContent = box._url; }, 2000);
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab !== 'search') loadTab(tab);
+  else document.getElementById('search-input').focus();
+}
+
+async function loadTab(tab) {
+  const pane = document.getElementById('list-pane');
+  pane.innerHTML = '<div class="empty-state">loading…</div>';
+
+  if (tab === 'favorites') {
+    const tracks = await api('/tidal/favorites/tracks?limit=100');
+    setTracks(tracks, 'Favorite Tracks');
+    pane.innerHTML = '<div class="empty-state">← tracks loaded</div>';
+
+  } else if (tab === 'albums') {
+    const albums = await api('/tidal/favorites/albums?limit=100');
+    renderList(albums, (a) => ({
+      title: a.title,
+      sub:   `${a.artist} · ${a.year || ''}`,
+      badge: '',
+      onClick: () => loadAlbum(a),
+    }));
+
+  } else if (tab === 'playlists') {
+    const pls = await api('/tidal/playlists');
+    renderList(pls, (p) => ({
+      title: p.name,
+      sub:   `${p.num_tracks} tracks`,
+      badge: '',
+      onClick: () => loadPlaylist(p),
+    }));
+  }
+}
+
+async function loadAlbum(album) {
+  const tracks = await api(`/tidal/album/${album.id}/tracks`);
+  setTracks(tracks, album.title, `${album.artist} · ${album.year || ''}`);
+  highlightListItem(album.id);
+}
+
+async function loadPlaylist(pl) {
+  const tracks = await api(`/tidal/playlist/${pl.id}/tracks`);
+  setTracks(tracks, pl.name, `${pl.num_tracks} tracks`);
+  highlightListItem(pl.id);
+}
+
+async function doSearch(q) {
+  if (!q.trim()) return;
+  const res = await api(`/tidal/search?q=${encodeURIComponent(q)}&limit=25`);
+  setTracks(res.tracks, `Results for "${q}"`, `${res.tracks.length} tracks · ${res.albums.length} albums`);
+  renderList(res.albums, (a) => ({
+    title: a.title,
+    sub:   `${a.artist} · ${a.year || ''}`,
+    onClick: () => loadAlbum(a),
+  }));
+}
+
+function onSearchKey(e) {
+  if (e.key === 'Enter') {
+    currentTab = 'search';
+    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-search').classList.add('active');
+    doSearch(e.target.value);
+  }
+}
+
+// ── Render helpers ──────────────────────────────────────────────────────────
+function renderList(items, mapper) {
+  const pane = document.getElementById('list-pane');
+  if (!items.length) { pane.innerHTML = '<div class="empty-state">nothing here</div>'; return; }
+  pane.innerHTML = items.map((item, i) => {
+    const m = mapper(item);
+    return `<div class="list-item" data-id="${item.id}" onclick="listItemClick(${i})">
+      <div class="title">${esc(m.title)}</div>
+      <div class="sub">${esc(m.sub || '')}</div>
+      ${m.badge ? `<div class="badge">${m.badge}</div>` : ''}
+    </div>`;
+  }).join('');
+  // store callbacks
+  pane._callbacks = items.map(mapper);
+}
+
+function listItemClick(i) {
+  const pane = document.getElementById('list-pane');
+  if (pane._callbacks && pane._callbacks[i].onClick) pane._callbacks[i].onClick();
+}
+
+function highlightListItem(id) {
+  document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.list-item[data-id="${id}"]`);
+  if (el) el.classList.add('active');
+}
+
+function setTracks(tracks, title, meta = '') {
+  currentTracks = tracks;
+  document.getElementById('panel-title').textContent = title;
+  document.getElementById('panel-meta').textContent = meta || `${tracks.length} tracks`;
+  renderTrackTable(tracks);
+}
+
+function renderTrackTable(tracks) {
+  const tbody = document.getElementById('track-list');
+  if (!tracks.length) { tbody.innerHTML = '<tr><td colspan="5" style="padding:40px;color:var(--muted);text-align:center">no tracks</td></tr>'; return; }
+  tbody.innerHTML = tracks.map((t, i) => `
+    <tr id="row-${t.id}" onclick="playTrack(${i})" class="${t.id === playingTrackId ? 'playing' : ''}">
+      <td class="num">${i + 1}</td>
+      <td>${esc(t.title)}</td>
+      <td>${esc(t.artist)}</td>
+      <td class="qual"><span class="qual-badge">${fmtQuality(t.quality)}</span></td>
+      <td class="dur">${fmtDur(t.duration)}</td>
+    </tr>`).join('');
+}
+
+// ── Playback ────────────────────────────────────────────────────────────────
+async function playTrack(index) {
+  const track = currentTracks[index];
+  if (!track) return;
+  playingTrackId = track.id;
+  renderTrackTable(currentTracks);
+  document.getElementById('np-title').textContent = track.title;
+  document.getElementById('np-sub').textContent = `${track.artist} · ${track.album}`;
+  await api('/play', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({track_id: track.id}) });
+}
+
+async function doStop() {
+  playingTrackId = null;
+  renderTrackTable(currentTracks);
+  document.getElementById('np-title').textContent = '—';
+  document.getElementById('np-sub').textContent = 'not playing';
+  await api('/stop', {method:'POST'});
+}
+
+// ── Status polling ──────────────────────────────────────────────────────────
+function startStatusPoll() {
+  pollTimer = setInterval(async () => {
+    const s = await api('/status').catch(() => null);
+    if (!s) return;
+    updateHqpStatus(s.hqplayer);
+    updateTidalDot(s.tidal_logged_in);
+  }, 5000);
+}
+
+function updateHqpStatus(hqp) {
+  const dot = document.getElementById('dot-hqp');
+  const lbl = document.getElementById('lbl-hqp');
+  if (hqp.error) {
+    dot.className = 'dot err';
+    lbl.textContent = 'hqplayer ✗';
+  } else {
+    dot.className = 'dot on';
+    lbl.textContent = 'hqplayer';
+  }
+}
+
+function updateTidalDot(on) {
+  document.getElementById('dot-tidal').className = `dot ${on ? 'on' : 'err'}`;
+}
+
+// ── Util ────────────────────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || r.statusText); }
+  return r.json();
+}
+function fmtDur(s) { if (!s) return '—'; const m = Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; }
+function fmtQuality(q) {
+  if (!q) return '—';
+  const map = { 'hi_res_lossless': 'MAX', 'lossless': 'HiFi', 'high': 'High', 'low': 'Low' };
+  for (const [k, v] of Object.entries(map)) if (q.toLowerCase().includes(k.toLowerCase())) return v;
+  return q.slice(0, 4).toUpperCase();
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+boot();
+</script>
+</body>
+</html>
