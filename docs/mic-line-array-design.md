@@ -48,7 +48,7 @@ AGC, over USB Audio Class 2.0, for roughly the price of lunch for four.
 | Finds the primary talker | **yes, in a shipping product** | yes, to be built |
 | A-weighted room-noise rejection | +5.6 dBA | **+9.4 dBA** |
 | Mic-to-output latency | tens of ms (USB + frame-based DSP) | **1.42 ms** |
-| Analogue line output | none — 3.5 mm and JST carry *playback* audio | **+4 dBu balanced / −10 dBV** |
+| Analogue output | 3.5 mm jack + Class-D, 1 W into 8 Ω — routing unverified | **+4 dBu balanced / −10 dBV** |
 | Audio bandwidth | 8 kHz (16 kHz USB firmware) | 8 kHz |
 | Cost, one unit | tens of dollars | ~$322, after ~$6–12k of NRE |
 | Time to working | a day | 5–6 months |
@@ -61,13 +61,31 @@ processing can extract low-frequency directivity from it. The XVF3800's
 directivity peaks near 1 kHz and *falls* above 2.6 kHz, where its 66 mm spacing
 exceeds λ/2 and the array starts to alias.
 
-**Two requirements the off-the-shelf part cannot meet, and one it can.**
-Bandwidth is a non-issue: its 16 kHz USB firmware gives the same 8 kHz of audio
-this design targets. But there is no analogue line output for the *microphone*
-signal — the 3.5 mm jack and JST connector are playback outputs for far-end audio
-— so a balanced +4 dBu feed means host, DAC and DI box downstream. And it is a
-USB device with a frame-based pipeline, so latency is tens of milliseconds rather
-than units.
+**On the analogue output — a correction.** An earlier version of this section
+asserted that the 3.5 mm jack and JST connector carry only playback audio, so
+there was no analogue path for the microphone signal. That was an assumption
+carried over from how speakerphones are normally built, not something verified,
+and it is probably too strong. What the documentation does establish:
+
+- The board's codec is a **TLV320AIC3104**, which has integrated Class-D
+  amplifiers rated **1 W per channel into 8 Ω**. There is a real analogue output
+  stage, and the 3.5 mm jack sits at roughly line level.
+- The XVF3800 has a documented **output mux**, set with `AUDIO_MGR_OP_L` and
+  `AUDIO_MGR_OP_R` as a (category, source) pair. Category 6 is *processed data*,
+  including the beamformed outputs, with source 3 the auto-selected beam.
+  Category 3 is amplified per-microphone data. By default the left channel
+  already carries the processed, beamformed output.
+
+What could **not** be confirmed from public documentation is whether that mux
+feeds the DAC and speaker path, or only the USB/I2S stream going upstream to the
+host. Seeed's documentation does not say, and the XMOS pipeline documents are not
+reachable from here. There is an architectural reason for doubt — in a
+speakerphone the DAC output is the AEC's *reference* signal, and routing the beam
+into it creates a microphone-to-loudspeaker loop the echo canceller was never
+meant to see — but that is reasoning about intent, not a specification.
+
+Bandwidth, at least, is a non-issue: the 16 kHz USB firmware gives the same 8 kHz
+of audio this design targets.
 
 ### The question that decides it
 
@@ -86,6 +104,26 @@ design descends from it.
   hard to justify on 3.8 dBA of room-noise rejection alone.
 
 Answer that before spending anything.
+
+### The $70 experiment that settles it
+
+Both open questions — can the beam reach the analogue output, and what is the
+latency — are measurable in an afternoon, and neither is worth further desk
+research:
+
+1. **Routing.** With `xvf_host`, set the output mux to the auto-selected beam
+   (`AUDIO_MGR_OP_L 6 3`) and listen at the 3.5 mm jack. Either the beamformed
+   microphone signal appears there or it does not.
+2. **Latency.** Click a source near the array. Capture the array's analogue
+   output and a reference microphone on two channels of one interface, and
+   cross-correlate the two impulses. That number is the whole decision.
+
+If the beam reaches the jack and the latency comes back in single-digit
+milliseconds, the reSpeaker plus a small unbalanced-to-balanced converter is very
+likely the right answer for anything short of same-room reinforcement, and this
+design is not worth building. If it comes back at tens of milliseconds, that
+settles it the other way for any application where delay matters — and settles it
+in favour of buying for every application where it does not.
 
 **Either way, buy one first.** Its 6-channel USB firmware exposes all four raw
 microphone channels alongside the processed output. That makes it a ready-made

@@ -232,13 +232,24 @@ reSpeaker XVF3800 USB 4-Mic Array</a> is four PDM MEMS microphones on a 66&#8239
 around an XMOS XVF3800, doing direction-of-arrival, beam selection, AEC,
 dereverberation, noise suppression and AGC over USB, for roughly the price of lunch for
 four.</p>
-<div class="tbl lefty"><table><thead><tr><th></th><th>reSpeaker XVF3800</th><th>This design</th></tr></thead><tbody><tr><td>Elements / aperture</td><td>4 on a 66 mm square</td><td>15 over 513.6 mm</td></tr><tr><td>Finds the primary talker</td><td class="hi">yes, shipping</td><td>yes, to be built</td></tr><tr><td>A-weighted room-noise rejection</td><td>+5.6 dBA</td><td class="hi">+9.4 dBA</td></tr><tr><td>Mic-to-output latency</td><td class="cost">tens of ms</td><td class="hi">1.42 ms</td></tr><tr><td>Analogue line output</td><td class="cost">none for the mic signal</td><td class="hi">+4 dBu balanced</td></tr><tr><td>Audio bandwidth</td><td>8 kHz</td><td>8 kHz</td></tr><tr><td>Cost, one unit</td><td class="hi">tens of dollars</td><td>~$322 + $6-12k NRE</td></tr><tr><td>Time to working</td><td class="hi">a day</td><td>5-6 months</td></tr></tbody></table></div>
+<div class="tbl lefty"><table><thead><tr><th></th><th>reSpeaker XVF3800</th><th>This design</th></tr></thead><tbody><tr><td>Elements / aperture</td><td>4 on a 66 mm square</td><td>15 over 513.6 mm</td></tr><tr><td>Finds the primary talker</td><td class="hi">yes, shipping</td><td>yes, to be built</td></tr><tr><td>A-weighted room-noise rejection</td><td>+5.6 dBA</td><td class="hi">+9.4 dBA</td></tr><tr><td>Mic-to-output latency</td><td class="cost">tens of ms</td><td class="hi">1.42 ms</td></tr><tr><td>Analogue output</td><td>3.5 mm jack + Class-D, 1 W into 8 ohm</td><td class="hi">+4 dBu balanced</td></tr><tr><td>Audio bandwidth</td><td>8 kHz</td><td>8 kHz</td></tr><tr><td>Cost, one unit</td><td class="hi">tens of dollars</td><td>~$322 + $6-12k NRE</td></tr><tr><td>Time to working</td><td class="hi">a day</td><td>5-6 months</td></tr></tbody></table></div>
 <p>Both directivity figures are computed the same way, for a talker in the array plane
 with white-noise gain held at 0&#8239;dB, A-weighted over 120&#8239;Hz&#8211;8&#8239;kHz. The
 3.8&#8239;dBA gap is real but modest, and it is pure aperture: 93&#8239;mm is
 0.068&#8202;&#955; at 250&#8239;Hz, so no processing extracts low-frequency directivity from
 it. The XVF3800&#8217;s directivity peaks near 1&#8239;kHz and <em>falls</em> above
 2.6&#8239;kHz, where its 66&#8239;mm spacing exceeds &#955;/2 and the array aliases.</p>
+<div class="callout"><span class="eyebrow">A correction to an earlier version of this page</span>
+<p>This section previously asserted that the 3.5&#8239;mm jack and JST connector carry only
+playback audio, so there was no analogue path for the microphone signal. That was an
+assumption carried over from how speakerphones are normally built, not something
+verified, and it is probably too strong. The board&#8217;s codec is a
+<strong>TLV320AIC3104</strong>, which has integrated Class-D amplifiers rated
+<strong>1&#8239;W per channel into 8&#8239;&#937;</strong>, and the XVF3800 has a documented
+output mux (<code>AUDIO_MGR_OP_L</code> / <code>AUDIO_MGR_OP_R</code>) whose category 6 is
+<em>processed data</em>, including the beamformed output. What could not be confirmed from
+public documentation is whether that mux feeds the DAC and speaker path or only the
+USB/I2S stream going upstream to the host.</p></div>
 <div class="gate"><p><strong>The question that decides it: what is actually driving
 &#8220;minimum delay&#8221;?</strong> That was two words in the brief, interpreted
 aggressively here &#8212; and everything expensive in this design descends from it. If the
@@ -246,6 +257,17 @@ output feeds loudspeakers in the same room, latency is the whole problem and no 
 device can serve. If it feeds a recorder, a codec or an ASR engine, tens of milliseconds
 are invisible, and building this is hard to justify on 3.8&#8239;dBA alone. Answer that
 before spending anything.</p></div>
+<p><strong>The $70 experiment that settles it.</strong> Both open questions &#8212; can the
+beam reach the analogue output, and what is the latency &#8212; are measurable in an
+afternoon, and neither is worth more desk research. Set the output mux to the
+auto-selected beam with <code>xvf_host AUDIO_MGR_OP_L 6 3</code> and listen at the jack:
+either the beamformed signal is there or it is not. Then click a source near the array,
+capture the array&#8217;s analogue output and a reference microphone on two channels of one
+interface, and cross-correlate the impulses. <em>That number is the whole decision.</em>
+Single-digit milliseconds and the reSpeaker plus a small unbalanced-to-balanced converter
+is very likely the right answer for anything short of same-room reinforcement. Tens of
+milliseconds and it settles the other way wherever delay matters &#8212; and in favour of
+buying wherever it does not.</p>
 <p><strong>Either way, buy one first.</strong> Its 6-channel USB firmware exposes all four
 raw microphone channels alongside the processed output, which makes it a ready-made
 algorithm sandbox for phase 1 &#8212; run this project&#8217;s SRP-PHAT and tracker against
