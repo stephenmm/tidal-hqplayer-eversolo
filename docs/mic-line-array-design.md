@@ -352,6 +352,63 @@ cheap array, and if 58 ms is acceptable for your application it is a much better
 plan than building §11. If 58 ms is not acceptable, the tap does not help, because
 the delay is not in the part you would be replacing.
 
+### Is 58 ms actually annoying?
+
+Entirely depends on **whether the talker hears the output**. Three cases, and they
+land in completely different places.
+
+**The talker never hears it** — recording, transcription, ASR, streaming to a
+remote listener. Then 58 ms is *invisible*. Nobody experiences it. There is no
+argument against the reSpeaker here at all.
+
+**A remote listener hears it** — a call or a conference. Fine, but not free.
+ITU-T G.114 puts the target for comfortable conversation at 150 ms one-way,
+mouth to ear. 58 ms of capture latency spends roughly a third of that budget
+before the codec, the network and the jitter buffer take their share, which are
+typically 20–40, 20–80 and 20–60 ms respectively. On a good link it is
+comfortable; on a marginal one it is what tips a conversation into people talking
+over each other.
+
+**The talker hears it in the room** — sound reinforcement, a stage monitor, a
+hearing-assist loop, headphone sidetone. **Then yes, and specifically so.** Two
+independent thresholds both fall below 58 ms:
+
+- **It is past the echo threshold.** Below roughly 30–40 ms a delayed copy fuses
+  with the direct sound and is heard as one event — the precedence, or Haas,
+  effect. For speech that fusion breaks down somewhere around 32–50 ms. At 58 ms
+  the reinforced sound is heard as a *separate slap-back echo* of your own voice,
+  not as part of it.
+- **It is in the range clinicians use to deliberately disrupt speech.** Delayed
+  auditory feedback is a real and well-studied effect: hearing your own voice
+  delayed changes how you talk. Maximum disruption is around 200 ms, but the
+  **50–70 ms window is exactly what is used therapeutically to slow speech and
+  reduce stuttering** — around 70 % reduction, without training. 58 ms sits in
+  the middle of it.
+
+That second point is the one worth sitting with. 58 ms is not a neutral number
+that happens to be a bit long. It is, near enough, the delay chosen when the
+*intent* is to alter someone's speech motor control. A fluent talker hearing
+themselves at 58 ms will slow down and stumble, and will not necessarily know
+why.
+
+How bad it gets depends on level: the disruption scales with how loud the delayed
+copy is relative to your own voice, which reaches you by air and through your own
+skull. Quiet reinforcement at the far end of a large room may be tolerable. A
+loudspeaker near the talker will not be.
+
+| Delay | What the talker experiences |
+|---|---|
+| under 10 ms | nothing; in-ear monitor territory |
+| 10–30 ms | fuses with the direct sound; slight spaciousness or coloration |
+| 30–50 ms | fusion breaking down; echo becoming perceptible |
+| **50–70 ms** | **distinct echo; the clinical DAF window — speech production measurably altered** |
+| around 200 ms | maximum disruption |
+| over 400 ms | conversational turn-taking breaks down |
+
+**This design sits at 1.42 ms**, far below the fusion threshold, which is the
+entire reason for the budget in §7. The reinforced sound is heard as part of the
+talker's own voice, not as a copy of it.
+
 ### The question that decides it
 
 **What is actually driving "minimum delay"?** That requirement was two words in
