@@ -11,6 +11,29 @@ from idealised frequency-domain weights.
 
 ---
 
+## Programme at a glance
+
+| Phase | Build | Cost | Time | What it retires |
+|---|---|---|---|---|
+| 0 | Design and software verification | **done** | — | Filter synthesis, parameter choice, predicted performance |
+| 1 | 8-channel acoustic proof of concept (§13.3) | ~$350 | 2 wk | Does beamforming and talker tracking work in a real room |
+| 2 | 16-channel full-aperture proof of concept (§13.4) | ~$600 | 3 wk | Full directivity, low-frequency superdirectivity |
+| 3 | Latency bench, converter eval boards (§13.4) | ~$200–400 | 1 wk, parallel | The 0.63 ms allocation — the largest unknown in the headline spec |
+| 4 | Engineering prototype (§11, §12.3) | 38.5 person-weeks + ~$6–12k NRE | 5–6 mo | Manufacturability, real self-noise, real latency |
+| 5 | Production (§12.2) | $133/unit at 1000 | 12–16 min/unit | — |
+
+**Phases 1–3 are the whole point.** Six weeks and about $1,150 buys the first
+genuine go/no-go, and de-risks a 5–6 month engineering programme before it starts.
+They need no custom hardware: electret capsules on a drilled strip, a multichannel
+audio interface, and offline processing with the tool in this repository.
+
+Total elapsed to a validated first article is **7–8 months** running the proof of
+concept first, or 5–6 if phases 1–3 overlap the start of phase 4. Non-labour NRE
+(prototype boards and assembly setup, the calibration coupler, enclosure tooling)
+is roughly $6–12k; engineering labour dominates it several times over.
+
+---
+
 ## 1. The brief, as interpreted
 
 | Requirement | What it was taken to mean |

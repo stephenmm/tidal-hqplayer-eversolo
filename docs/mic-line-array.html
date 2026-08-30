@@ -80,6 +80,15 @@ h1{
   letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-top:.3rem;
 }
 
+/* ---------- programme roadmap ---------- */
+.roadmap{margin:2.6rem 0 0;border-top:1px solid var(--rule);padding-top:1.6rem}
+.roadmap .tbl{margin:.9rem 0 1.1rem}
+.roadmap .tbl td:first-child{color:var(--accent);font-weight:600}
+.roadmap p{font-size:.94rem;max-width:52rem}
+.gate{background:var(--accent-soft);border-left:2px solid var(--accent);
+  padding:.85rem 1.05rem;border-radius:0 3px 3px 0;max-width:52rem;margin:0 0 1rem}
+.gate p{margin:0}
+
 /* ---------- layout ---------- */
 .cols{display:grid;grid-template-columns:1fr;gap:0}
 /* grid items default to a min-content minimum, which wide tables and SVGs blow out */
@@ -191,7 +200,19 @@ diaphragm to XLR pin&#8239;2.</p>
 <div><span class="num">160<sub>ms</sub></span><small>Talker hand-over</small></div>
 <div><span class="num">+4<sub>dBu</sub></span><small>Balanced output</small></div>
 </div>
-</header><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li><li><a href="#cost">Cost and time</a></li><li><a href="#poc">Proof of concept</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
+</header><section class="roadmap" aria-label="Programme at a glance">
+<span class="eyebrow">Programme at a glance</span>
+<div class="tbl notes lefty"><table><thead><tr><th>Phase</th><th>Build</th><th>Cost</th><th>Time</th><th>What it retires</th></tr></thead><tbody><tr><td>0</td><td>Design and software verification</td><td>done</td><td>&#8212;</td><td>Filter synthesis, parameter choice, predicted performance</td></tr><tr><td>1</td><td>8-channel acoustic proof of concept</td><td>~$350</td><td>2 wk</td><td>Does beamforming and tracking work in a real room</td></tr><tr><td>2</td><td>16-channel full-aperture proof of concept</td><td>~$600</td><td>3 wk</td><td>Full directivity, low-frequency superdirectivity</td></tr><tr><td>3</td><td>Latency bench, converter eval boards</td><td>~$200&#8211;400</td><td>1 wk, parallel</td><td>The 0.63 ms allocation &#8212; the largest unknown in the headline spec</td></tr><tr><td>4</td><td>Engineering prototype</td><td>38.5 pw + ~$6&#8211;12k NRE</td><td>5&#8211;6 mo</td><td>Manufacturability, real self-noise, real latency</td></tr><tr><td>5</td><td>Production</td><td>$133/unit at 1000</td><td>12&#8211;16 min/unit</td><td>&#8212;</td></tr></tbody></table></div>
+<div class="gate"><p><strong>Phases 1&#8211;3 are the whole point.</strong> Six weeks and
+about $1,150 buys the first genuine go/no-go, and de-risks a 5&#8211;6 month engineering
+programme before it starts. They need no custom hardware: electret capsules on a drilled
+strip, a multichannel audio interface, and offline processing.</p></div>
+<p>Total elapsed to a validated first article is <strong>7&#8211;8 months</strong> running
+the proof of concept first, or 5&#8211;6 if phases 1&#8211;3 overlap the start of phase 4.
+Non-labour NRE &#8212; prototype boards and assembly setup, the calibration coupler,
+enclosure tooling &#8212; is roughly $6&#8211;12k; engineering labour dominates it several
+times over.</p>
+</section><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li><li><a href="#cost">Cost and time</a></li><li><a href="#poc">Proof of concept</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
 <p>Three requirements, each of which turns out to force an architectural decision
 rather than a parameter choice.</p>
 <h3>&#8220;Finds the primary talker&#8221;</h3>
