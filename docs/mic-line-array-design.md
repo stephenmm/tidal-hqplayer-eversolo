@@ -47,8 +47,8 @@ AGC, over USB Audio Class 2.0, for roughly the price of lunch for four.
 | Elements / aperture | 4 on a 66 mm square (93 mm diagonal) | 15 over 513.6 mm |
 | Finds the primary talker | **yes, in a shipping product** | yes, to be built |
 | A-weighted room-noise rejection | +5.6 dBA | **+9.4 dBA** |
-| Mic-to-output latency | tens of ms (USB + frame-based DSP) | **1.42 ms** |
-| Analogue output | 3.5 mm jack + Class-D, 1 W into 8 Ω — routing unverified | **+4 dBu balanced / −10 dBV** |
+| Mic-to-output latency | **58 ms** min, mic in to I2S out, plus USB transport | **1.42 ms** |
+| Analogue output | headphone/line out, but it carries the **far-end reference only** | **+4 dBu balanced / −10 dBV** |
 | Audio bandwidth | 8 kHz (16 kHz USB firmware) | 8 kHz |
 | Cost, one unit | tens of dollars | ~$322, after ~$6–12k of NRE |
 | Time to working | a day | 5–6 months |
@@ -61,28 +61,49 @@ processing can extract low-frequency directivity from it. The XVF3800's
 directivity peaks near 1 kHz and *falls* above 2.6 kHz, where its 66 mm spacing
 exceeds λ/2 and the array starts to alias.
 
-**On the analogue output — a correction.** An earlier version of this section
-asserted that the 3.5 mm jack and JST connector carry only playback audio, so
-there was no analogue path for the microphone signal. That was an assumption
-carried over from how speakerphones are normally built, not something verified,
-and it is probably too strong. What the documentation does establish:
+**The analogue output cannot carry the beam, and the pipeline costs 58 ms.**
+Both questions are now settled from XMOS's own documentation rather than
+inference, and both settle against using this part as a standalone microphone.
 
-- The board's codec is a **TLV320AIC3104**, which has integrated Class-D
-  amplifiers rated **1 W per channel into 8 Ω**. There is a real analogue output
-  stage, and the 3.5 mm jack sits at roughly line level.
-- The XVF3800 has a documented **output mux**, set with `AUDIO_MGR_OP_L` and
-  `AUDIO_MGR_OP_R` as a (category, source) pair. Category 6 is *processed data*,
-  including the beamformed outputs, with source 3 the auto-selected beam.
-  Category 3 is amplified per-microphone data. By default the left channel
-  already carries the processed, beamformed output.
+*The DAC is fed from the far end, and nothing reroutes it.* The XVF3800's I2S
+signal assignment gives the host stream and the DAC stream separate pins: in the
+USB Accessory configuration `I2S_DATA0` is *output to DAC* while the host stream
+goes over USB, and the datasheet is explicit that "the I2S interface operates in
+master mode to supply the far end audio signal to the DAC driving the speaker."
+The DAC's source is the AEC reference by construction — "a far-end AEC reference
+signal must be provided on the left (0) channel… the DAC is configured to play
+the left input channel on both the right and left outputs" — which is what keeps
+the signal playing into the room identical to the one the echo canceller is
+subtracting.
 
-What could **not** be confirmed from public documentation is whether that mux
-feeds the DAC and speaker path, or only the USB/I2S stream going upstream to the
-host. Seeed's documentation does not say, and the XMOS pipeline documents are not
-reachable from here. There is an architectural reason for doubt — in a
-speakerphone the DAC output is the AEC's *reference* signal, and routing the beam
-into it creates a microphone-to-loudspeaker loop the echo canceller was never
-meant to see — but that is reasoning about intent, not a specification.
+The `AUDIO_MGR_OP_L` / `AUDIO_MGR_OP_R` mux is host-bound: it sets what the
+XVF3800 "sends to the host", not what reaches the DAC. Enumerating the whole
+control-command set turns up no DAC source selector at all — only two booleans,
+`I2S_DAC_DSP_ENABLE` and `AUDIO_MGR_FAR_END_DSP_ENABLE`, both defaulting to 0 and
+neither choosing a source. The architecture is the same across the USB, I2S and
+Home Assistant firmwares; only which pin carries which stream changes. Getting
+microphone audio to the speaker therefore means looping it in the host — which
+puts a computer back in the audio path and hands the AEC its own output to chase.
+
+*Latency is published, and it is 58 ms.* XMOS's pipeline parameter table gives an
+input delay of **58 ms minimum, microphone in to I2S out**, with a 16 ms
+beamformer update interval and a 192 ms AEC tail. That is the internal figure;
+USB transport is on top of it. (The table's separate 50 ms "output delay" is the
+far-end direction and does not add.) It is quoted as a minimum with no typical or
+maximum, which is worth reading as a floor rather than a target.
+
+**A correction, and a correction to the correction.** This section originally
+asserted the jack carried only playback audio; that turned out to be right, but I
+had asserted it from how speakerphones are usually built rather than from any
+document, which is not the same as knowing it. Challenged, I over-corrected and
+called it "probably too strong" — and in doing so passed on a bad figure: the
+**TLV320AIC3104 has no Class-D amplifier and no 8 Ω rating**. It is a headphone
+codec, 30 mW into 16 Ω with differential line outputs into 10 kΩ. The 1 W into
+8 Ω belongs to the **TLV320AIC3107**, a different part. Seeed's "supports 5 W
+amplified speakers" most likely describes an external *active* speaker; no
+amplifier IC is named in any Seeed document and no schematic is published, so
+that one remains genuinely open — and, given the routing answer above, no longer
+matters.
 
 Bandwidth, at least, is a non-issue: the 16 kHz USB firmware gives the same 8 kHz
 of audio this design targets.
@@ -93,37 +114,24 @@ of audio this design targets.
 the brief, and §1 interpreted it aggressively — 1.42 ms is a demanding target
 that forced time-domain filtering, a pre-computed beam bank and cross-fade
 steering rather than continuous re-derivation. Everything expensive in this
-design descends from it.
+design descends from it. With the reSpeaker's 58 ms now on the table, the two
+branches separate cleanly:
 
 - **If the output feeds loudspeakers in the same room** — reinforcement, a
-  hearing-assist loop, anything the talker can hear — then latency is the whole
-  problem, no USB device can serve, and this design is the right answer.
+  hearing-assist loop, anything the talker can hear — then the reSpeaker is out
+  twice over: 58 ms is forty times this design's budget and far past any
+  Haas-effect allowance, and its analogue output cannot carry the beam anyway.
+  Build it.
 - **If it feeds a recorder, a conferencing codec, a streaming encoder or an ASR
-  engine**, then tens of milliseconds are invisible, the reSpeaker does the job
-  today for three orders of magnitude less money, and building this would be
-  hard to justify on 3.8 dBA of room-noise rejection alone.
+  engine**, then 58 ms is invisible, the beam arriving over USB is exactly the
+  right delivery, and the reSpeaker does the job today for three orders of
+  magnitude less money. Building this would be hard to justify on 3.8 dBA of
+  room-noise rejection alone.
 
-Answer that before spending anything.
-
-### The $70 experiment that settles it
-
-Both open questions — can the beam reach the analogue output, and what is the
-latency — are measurable in an afternoon, and neither is worth further desk
-research:
-
-1. **Routing.** With `xvf_host`, set the output mux to the auto-selected beam
-   (`AUDIO_MGR_OP_L 6 3`) and listen at the 3.5 mm jack. Either the beamformed
-   microphone signal appears there or it does not.
-2. **Latency.** Click a source near the array. Capture the array's analogue
-   output and a reference microphone on two channels of one interface, and
-   cross-correlate the two impulses. That number is the whole decision.
-
-If the beam reaches the jack and the latency comes back in single-digit
-milliseconds, the reSpeaker plus a small unbalanced-to-balanced converter is very
-likely the right answer for anything short of same-room reinforcement, and this
-design is not worth building. If it comes back at tens of milliseconds, that
-settles it the other way for any application where delay matters — and settles it
-in favour of buying for every application where it does not.
+There is no longer a middle case to measure for. If you want the two-minute
+confirmation anyway: power the board from a USB charger with no host attached, so
+nothing can be streaming to it, put headphones in the 3.5 mm jack and talk. Silence
+is the documented behaviour.
 
 **Either way, buy one first.** Its 6-channel USB firmware exposes all four raw
 microphone channels alongside the processed output. That makes it a ready-made
