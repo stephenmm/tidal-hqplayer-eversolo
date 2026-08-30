@@ -34,6 +34,69 @@ is roughly $6–12k; engineering labour dominates it several times over.
 
 ---
 
+## Build versus buy
+
+Before any of this: a shipping product already does most of it. The [Seeed
+reSpeaker XVF3800 USB 4-Mic Array](https://github.com/Seeed-Studio/wiki-documents/blob/docusaurus-version/sites/en/docs/Sensor/reSpeaker_XVF3800_USB_4_Mic_Array/respeaker_xvf3800_usb_4_mic_array.md)
+is four PDM MEMS microphones on a 66 mm square around an XMOS XVF3800, doing
+direction-of-arrival, beam selection, AEC, dereverberation, noise suppression and
+AGC, over USB Audio Class 2.0, for roughly the price of lunch for four.
+
+| | reSpeaker XVF3800 | This design |
+|---|---|---|
+| Elements / aperture | 4 on a 66 mm square (93 mm diagonal) | 15 over 513.6 mm |
+| Finds the primary talker | **yes, in a shipping product** | yes, to be built |
+| A-weighted room-noise rejection | +5.6 dBA | **+9.4 dBA** |
+| Mic-to-output latency | tens of ms (USB + frame-based DSP) | **1.42 ms** |
+| Analogue line output | none — 3.5 mm and JST carry *playback* audio | **+4 dBu balanced / −10 dBV** |
+| Audio bandwidth | 8 kHz (16 kHz USB firmware) | 8 kHz |
+| Cost, one unit | tens of dollars | ~$322, after ~$6–12k of NRE |
+| Time to working | a day | 5–6 months |
+
+Both directivity figures are computed the same way in §14's method, for a talker
+in the array plane with white-noise gain held at 0 dB, then A-weighted over
+120 Hz – 8 kHz against a −5 dB/octave room-noise spectrum. The 3.8 dBA gap is
+real but modest, and it is pure aperture: 93 mm is 0.068 λ at 250 Hz, so no
+processing can extract low-frequency directivity from it. The XVF3800's
+directivity peaks near 1 kHz and *falls* above 2.6 kHz, where its 66 mm spacing
+exceeds λ/2 and the array starts to alias.
+
+**Two requirements the off-the-shelf part cannot meet, and one it can.**
+Bandwidth is a non-issue: its 16 kHz USB firmware gives the same 8 kHz of audio
+this design targets. But there is no analogue line output for the *microphone*
+signal — the 3.5 mm jack and JST connector are playback outputs for far-end audio
+— so a balanced +4 dBu feed means host, DAC and DI box downstream. And it is a
+USB device with a frame-based pipeline, so latency is tens of milliseconds rather
+than units.
+
+### The question that decides it
+
+**What is actually driving "minimum delay"?** That requirement was two words in
+the brief, and §1 interpreted it aggressively — 1.42 ms is a demanding target
+that forced time-domain filtering, a pre-computed beam bank and cross-fade
+steering rather than continuous re-derivation. Everything expensive in this
+design descends from it.
+
+- **If the output feeds loudspeakers in the same room** — reinforcement, a
+  hearing-assist loop, anything the talker can hear — then latency is the whole
+  problem, no USB device can serve, and this design is the right answer.
+- **If it feeds a recorder, a conferencing codec, a streaming encoder or an ASR
+  engine**, then tens of milliseconds are invisible, the reSpeaker does the job
+  today for three orders of magnitude less money, and building this would be
+  hard to justify on 3.8 dBA of room-noise rejection alone.
+
+Answer that before spending anything.
+
+**Either way, buy one first.** Its 6-channel USB firmware exposes all four raw
+microphone channels alongside the processed output. That makes it a ready-made
+algorithm sandbox for §13's phase 1 — run this repository's SRP-PHAT and tracker
+against real recordings from real hardware in a real room, for a fraction of the
+$350 that phase costs otherwise. It will not validate the 513.6 mm aperture, and
+its four elements cannot reach the directivity here. It will tell you whether the
+tracking behaves, and it gives you a commercial baseline to measure against.
+
+---
+
 ## 1. The brief, as interpreted
 
 | Requirement | What it was taken to mean |
