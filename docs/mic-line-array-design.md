@@ -226,8 +226,9 @@ realise, and it is paid for in on-axis ripple: an early attempt at
 | 6300 | 11.9 | 11.2 | 0.70 | −0.05 | 11.5 |
 
 Mean DI 200 Hz – 7 kHz: **9.54 dB**, against 8.56 dB for delay-and-sum on the
-same array. Superdirectivity is worth about 1 dB broadband — but 2 to 3.5 dB in
-the 250 Hz – 1 kHz region where room noise actually lives.
+same array. Superdirectivity is worth about 1 dB broadband — and about 2 dB
+across 250 Hz – 1 kHz, peaking at 2.4 dB near 500 Hz, which is where room noise
+actually lives.
 
 Beamwidth and sidelobes:
 

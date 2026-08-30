@@ -1,0 +1,480 @@
+<title>Talker-Tracking Line Array</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --paper:#e7ebec; --surface:#f6f8f8; --sunk:#dde4e5;
+  --ink:#0d1417; --body:#26383d; --muted:#5c6e73; --rule:#c6d0d2;
+  --accent:#0c6f7c; --accent-soft:#0c6f7c22; --cost:#a94e26; --cost-soft:#a94e2618;
+  --shadow:0 1px 2px #0d141708, 0 8px 24px #0d141710;
+  --display:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --measure:34rem; --wide:62rem;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0a1013; --surface:#111a1d; --sunk:#070d0f;
+    --ink:#e2eaeb; --body:#bccccf; --muted:#839599; --rule:#222f33;
+    --accent:#43bfcd; --accent-soft:#43bfcd22; --cost:#e08d5e; --cost-soft:#e08d5e18;
+    --shadow:0 1px 2px #0004, 0 8px 24px #0006;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0a1013; --surface:#111a1d; --sunk:#070d0f;
+  --ink:#e2eaeb; --body:#bccccf; --muted:#839599; --rule:#222f33;
+  --accent:#43bfcd; --accent-soft:#43bfcd22; --cost:#e08d5e; --cost-soft:#e08d5e18;
+  --shadow:0 1px 2px #0004, 0 8px 24px #0006;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--body);
+  font-family:var(--serif); font-size:17px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--wide);margin:0 auto;padding:0 1.5rem 6rem}
+h1,h2,h3,.eyebrow,th,.num,.chip,.tag{font-family:var(--display)}
+h2,h3{color:var(--ink);text-wrap:balance;letter-spacing:-.012em}
+h2{font-size:1.6rem;font-weight:700;margin:0 0 .2rem;line-height:1.2}
+h3{font-size:1.06rem;font-weight:600;margin:2.4rem 0 .5rem}
+p{margin:0 0 1.05rem;max-width:var(--measure)}
+ul{max-width:var(--measure);padding-left:1.1rem;margin:0 0 1.05rem}
+li{margin-bottom:.5rem}
+strong{color:var(--ink);font-weight:600}
+code{font-family:var(--mono);font-size:.85em;background:var(--sunk);
+  padding:.1em .36em;border-radius:3px;color:var(--ink)}
+a{color:var(--accent)}
+.eyebrow{
+  font-size:.66rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:.55rem;
+}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);padding:3.2rem 0 2.2rem;margin-bottom:2.6rem}
+h1{
+  font-size:clamp(2.1rem,5.4vw,3.5rem);font-weight:700;line-height:1.02;
+  letter-spacing:-.032em;color:var(--ink);margin:0 0 .9rem;max-width:16ch;
+}
+.standfirst{font-size:1.17rem;line-height:1.55;max-width:44ch;color:var(--body)}
+.standfirst b{color:var(--ink);font-weight:600}
+
+/* ---------- spec strip ---------- */
+.strip{
+  display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fit,minmax(9.4rem,1fr));
+  margin:2.4rem 0 0;border-radius:2px;overflow:hidden;
+}
+.strip div{background:var(--surface);padding:.9rem 1rem}
+.strip .num{
+  display:block;font-family:var(--mono);font-weight:600;color:var(--ink);
+  font-size:1.42rem;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.15;
+}
+.strip .num sub{font-family:var(--display);font-size:.5em;font-weight:600;
+  color:var(--muted);letter-spacing:.02em;vertical-align:baseline;margin-left:.18em}
+.strip small{
+  display:block;font-family:var(--display);font-size:.63rem;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-top:.3rem;
+}
+
+/* ---------- layout ---------- */
+.cols{display:grid;grid-template-columns:1fr;gap:0}
+/* grid items default to a min-content minimum, which wide tables and SVGs blow out */
+.cols>*{min-width:0}
+figure,.tbl,pre{min-width:0}
+/* base state first: the media query below must be able to override it */
+nav.toc{display:none;font-family:var(--display);font-size:.78rem;line-height:1.45}
+@media(min-width:64rem){
+  .cols{grid-template-columns:11rem 1fr;gap:3.4rem;align-items:start}
+  nav.toc{position:sticky;top:1.6rem;display:block}
+}
+nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:s}
+nav.toc li{counter-increment:s;margin:0 0 .42rem}
+nav.toc a{
+  display:grid;grid-template-columns:1.5rem 1fr;gap:.2rem;
+  color:var(--muted);text-decoration:none;padding:.1rem 0;
+}
+nav.toc a::before{content:counter(s,decimal-leading-zero);
+  font-family:var(--mono);font-size:.68rem;color:var(--rule)}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent)}
+nav.toc a:hover::before{color:var(--accent)}
+
+section{padding:3.2rem 0 0;scroll-margin-top:1.5rem}
+section+section{border-top:1px solid var(--rule);margin-top:3.2rem}
+.sec-n{font-family:var(--mono);font-size:.72rem;color:var(--accent);
+  letter-spacing:.06em;display:block;margin-bottom:.75rem}
+
+/* ---------- panels + figures ---------- */
+figure{margin:1.9rem 0;background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:1.4rem 1.4rem 1.1rem;box-shadow:var(--shadow)}
+figcaption{font-family:var(--display);font-size:.76rem;line-height:1.5;
+  color:var(--muted);margin-top:1rem;max-width:58ch}
+figcaption b{color:var(--ink);font-weight:600}
+.figscroll{overflow-x:auto}
+svg{display:block;max-width:100%}
+.axlab{font-family:var(--display);font-size:9px;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;fill:var(--muted)}
+.tick{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+.gridline{stroke:var(--rule);stroke-width:1}
+
+/* ---------- tables ---------- */
+.tbl{overflow-x:auto;margin:1.6rem 0}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);
+  font-size:.83rem;font-variant-numeric:tabular-nums;min-width:26rem}
+th{
+  font-family:var(--display);font-size:.63rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);text-align:right;
+  padding:.4rem .7rem .5rem;border-bottom:1px solid var(--ink);white-space:nowrap;
+}
+th:first-child,td:first-child{text-align:left}
+td{padding:.42rem .7rem;text-align:right;border-bottom:1px solid var(--rule);color:var(--body)}
+tbody tr:hover td{background:var(--accent-soft)}
+td:first-child{color:var(--ink)}
+td.hi{color:var(--accent);font-weight:600}
+td.cost{color:var(--cost);font-weight:600}
+tfoot td{border-bottom:none;border-top:1px solid var(--ink);
+  color:var(--ink);font-weight:600;padding-top:.5rem}
+
+/* ---------- misc devices ---------- */
+.callout{
+  border-left:2px solid var(--cost);background:var(--cost-soft);
+  padding:.95rem 1.1rem;margin:1.6rem 0;max-width:var(--measure);border-radius:0 3px 3px 0;
+}
+.callout .eyebrow{color:var(--cost);margin-bottom:.35rem}
+.callout p:last-child{margin-bottom:0}
+.limits{list-style:none;padding:0;max-width:var(--measure)}
+.limits li{padding-left:1.5rem;position:relative}
+.limits li::before{content:"×";position:absolute;left:.25rem;top:-.02em;
+  color:var(--cost);font-family:var(--mono);font-weight:600}
+.seg{display:inline-flex;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  border-radius:2px;overflow:hidden;margin-bottom:1.1rem}
+.seg button{
+  font-family:var(--display);font-size:.72rem;font-weight:600;letter-spacing:.05em;
+  background:var(--surface);color:var(--muted);border:0;padding:.42rem .78rem;cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+pre{
+  font-family:var(--mono);font-size:.76rem;line-height:1.6;background:var(--sunk);
+  color:var(--ink);padding:1rem 1.1rem;border-radius:3px;overflow-x:auto;
+  border:1px solid var(--rule);margin:1.4rem 0;
+}
+footer{border-top:1px solid var(--rule);margin-top:4rem;padding-top:1.6rem;
+  font-family:var(--display);font-size:.78rem;color:var(--muted);max-width:var(--measure)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.mic{transition:r .18s ease, fill .18s ease}
+@keyframes pop{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:scale(1)}}
+</style>
+<div class="wrap"><header class="mast">
+<span class="eyebrow">Acoustic design study &#183; verified in software</span>
+<h1>Talker-Tracking Line Array</h1>
+<p class="standfirst">A 16-channel steered microphone array that locks onto whoever is
+talking, delivers a balanced line-level feed, and does it in <b>1.42&#8239;ms</b> from
+diaphragm to XLR pin&#8239;2.</p>
+<div class="strip">
+<div><span class="num">1.42<sub>ms</sub></span><small>Mic to line out</small></div>
+<div><span class="num">9.5<sub>dB</sub></span><small>Mean directivity</small></div>
+<div><span class="num">513.6<sub>mm</sub></span><small>Aperture, 15 mics</small></div>
+<div><span class="num">34</span><small>Pre-computed beams</small></div>
+<div><span class="num">160<sub>ms</sub></span><small>Talker hand-over</small></div>
+<div><span class="num">+4<sub>dBu</sub></span><small>Balanced output</small></div>
+</div>
+</header><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
+<p>Three requirements, each of which turns out to force an architectural decision
+rather than a parameter choice.</p>
+<h3>&#8220;Finds the primary talker&#8221;</h3>
+<p>Fully automatic &#8212; no operator, no presets. The system localises, decides who is
+<em>primary</em>, steers, and hands over cleanly when someone else takes the floor.
+Deciding is the hard half: per-frame localisation is not talker tracking.</p>
+<h3>&#8220;Minimum delay&#8221;</h3>
+<p>Latency is a first-class constraint, budgeted term by term and traded against
+directivity explicitly &#8212; not whatever falls out of a convenient DSP structure. This
+rules out the obvious architecture. The textbook broadband beamformer runs in the
+STFT domain, and a 512-point frame at 16&#8239;kHz costs 32&#8239;ms of algorithmic
+latency <em>before</em> any filtering. That is 23&#215; this entire signal chain, so the
+beamformer here is time-domain FIR throughout.</p>
+<p>It also rules out continuous steering. Re-deriving filter coefficients every frame
+makes latency a function of the tracker. Instead a fixed bank of 34 beams is
+pre-computed, two run in parallel, and steering is a cross-fade between them &#8212;
+which adds exactly zero delay.</p>
+<h3>&#8220;Line level for output&#8221;</h3>
+<p>Calibrated, standards-compliant analogue output: balanced +4&#8239;dBu with real
+headroom, plus unbalanced &#8722;10&#8239;dBV. Gain staging is worked end to end, from
+sound pressure at the diaphragm to volts at the connector.</p>
+</section><section id="limits"><span class="sec-n">&#167;2</span><h2>What a line array cannot do</h2>
+<p>Stated up front, because it constrains where the product can be mounted.</p>
+<ul class="limits">
+<li><strong>Cone ambiguity.</strong> A linear array measures only the angle to its own
+axis. Every source on a cone around that axis produces identical inter-microphone
+delays. In a plane this collapses to a front/back mirror: &#952; and 180&#176;&#8202;&#8722;&#8202;&#952;
+are indistinguishable.</li>
+<li><strong>No elevation.</strong> A talker standing and the same talker seated at the
+same bearing are the same signal.</li>
+<li><strong>No range.</strong> Two talkers on one bearing at different distances cannot be
+separated at all.</li>
+</ul>
+<p>Mitigations, in order of cost: mount the array against a wall, table edge or display
+bezel so the rear hemisphere is physically baffled; use the 16th, rear-facing
+microphone as a front/back discriminator and noise reference; and if genuine 2-D
+coverage is needed, this design becomes the row element of an L or cross array &#8212;
+the beamformer mathematics is unchanged, only the steering manifold grows.</p>
+</section><section id="geometry"><span class="sec-n">&#167;3</span><h2>Geometry</h2>
+<p>Base grid pitch is <strong>21.4&#8239;mm</strong>, which is &#955;/2 at 8&#8239;kHz. That is the
+binding spatial-sampling constraint: to steer to &#177;75&#176; without a grating lobe
+entering visible space the pitch must satisfy <code>d &#8804; &#955;/(1+sin&#952;)</code>
+= 42.88/1.966 = 21.8&#8239;mm, so 21.4&#8239;mm holds with a little margin.</p>
+<figure><div class="figscroll"><svg viewBox="0 0 860 250" width="860" role="img" aria-label="Array geometry: 15 microphones over 513.6 mm, with three nested octave sub-arrays"><line x1="34" y1="74" x2="732" y2="74" stroke="var(--rule)" stroke-width="1"/><line x1="34" y1="34" x2="732" y2="34" stroke="var(--muted)" stroke-width="1"/><line x1="34" y1="29" x2="34" y2="39" stroke="var(--muted)" stroke-width="1"/><line x1="732" y1="29" x2="732" y2="39" stroke="var(--muted)" stroke-width="1"/><rect x="331.0" y="25" width="104" height="18" fill="var(--surface)"/><text x="383.0" y="38" text-anchor="middle" class="tick">513.6 mm</text><circle class="mic s-LF" data-i="0" cx="34.0" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-LF" data-i="1" cx="150.3" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-MF" data-i="2" cx="208.5" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-LF s-MF" data-i="3" cx="266.7" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-HF" data-i="4" cx="295.8" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-MF s-HF" data-i="5" cx="324.8" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-HF" data-i="6" cx="353.9" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-LF s-MF s-HF" data-i="7" cx="383.0" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-HF" data-i="8" cx="412.1" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-MF s-HF" data-i="9" cx="441.2" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-HF" data-i="10" cx="470.2" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-LF s-MF" data-i="11" cx="499.3" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-MF" data-i="12" cx="557.5" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-LF" data-i="13" cx="615.7" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><circle class="mic s-LF" data-i="14" cx="732.0" cy="74" r="6.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/><line x1="383.0" y1="87" x2="412.1" y2="87" stroke="var(--muted)" stroke-width="1"/><text x="397.5" y="104" text-anchor="middle" class="tick">21.4 mm</text><text x="397.5" y="116" text-anchor="middle" class="axlab">&#955;/2 at 8 kHz</text><g class="row" data-band="HF"><rect x="0" y="129" width="860" height="22" fill="transparent"/><text x="4" y="143.5" class="axlab" fill="var(--ink)">HF</text><line x1="34" y1="140" x2="732" y2="140" stroke="var(--rule)" stroke-width="1"/><circle cx="295.8" cy="140" r="4" fill="var(--accent)"/><circle cx="324.8" cy="140" r="4" fill="var(--accent)"/><circle cx="353.9" cy="140" r="4" fill="var(--accent)"/><circle cx="383.0" cy="140" r="4" fill="var(--accent)"/><circle cx="412.1" cy="140" r="4" fill="var(--accent)"/><circle cx="441.2" cy="140" r="4" fill="var(--accent)"/><circle cx="470.2" cy="140" r="4" fill="var(--accent)"/><text x="742" y="139" class="tick" fill="var(--muted)">21.4 mm pitch</text><text x="742" y="150" class="tick" fill="var(--muted)">to 8014 Hz</text></g><g class="row" data-band="MF"><rect x="0" y="165" width="860" height="22" fill="transparent"/><text x="4" y="179.5" class="axlab" fill="var(--ink)">MF</text><line x1="34" y1="176" x2="732" y2="176" stroke="var(--rule)" stroke-width="1"/><circle cx="208.5" cy="176" r="4" fill="var(--accent)"/><circle cx="266.7" cy="176" r="4" fill="var(--accent)"/><circle cx="324.8" cy="176" r="4" fill="var(--accent)"/><circle cx="383.0" cy="176" r="4" fill="var(--accent)"/><circle cx="441.2" cy="176" r="4" fill="var(--accent)"/><circle cx="499.3" cy="176" r="4" fill="var(--accent)"/><circle cx="557.5" cy="176" r="4" fill="var(--accent)"/><text x="742" y="175" class="tick" fill="var(--muted)">42.8 mm pitch</text><text x="742" y="186" class="tick" fill="var(--muted)">to 4007 Hz</text></g><g class="row" data-band="LF"><rect x="0" y="201" width="860" height="22" fill="transparent"/><text x="4" y="215.5" class="axlab" fill="var(--ink)">LF</text><line x1="34" y1="212" x2="732" y2="212" stroke="var(--rule)" stroke-width="1"/><circle cx="34.0" cy="212" r="4" fill="var(--accent)"/><circle cx="150.3" cy="212" r="4" fill="var(--accent)"/><circle cx="266.7" cy="212" r="4" fill="var(--accent)"/><circle cx="383.0" cy="212" r="4" fill="var(--accent)"/><circle cx="499.3" cy="212" r="4" fill="var(--accent)"/><circle cx="615.7" cy="212" r="4" fill="var(--accent)"/><circle cx="732.0" cy="212" r="4" fill="var(--accent)"/><text x="742" y="211" class="tick" fill="var(--muted)">85.6 mm pitch</text><text x="742" y="222" class="tick" fill="var(--muted)">to 2004 Hz</text></g></svg></div>
+<figcaption>Fifteen microphones over 513.6&#8239;mm, drawn to scale. The positions are
+chosen so that three <b>uniform</b> octave sub-arrays are embedded in one aperture and
+share elements &#8212; hover a sub-array row to see which. Nesting is a
+<b>spatial-sampling guarantee, not a runtime band split</b>: the beamformer uses all
+fifteen elements at every frequency and lets the optimiser choose the weighting. The
+nested positions only ensure an adequately-sampled sub-aperture exists in every
+octave, so the optimiser is never asked to do the impossible.</figcaption></figure>
+<div class="tbl"><table><thead><tr><th>Sub-array</th><th>Elements</th><th>Pitch</th><th>Aperture</th><th>Alias-free to</th></tr></thead><tbody><tr><td>LF</td><td>7</td><td>85.6 mm</td><td>513.6 mm</td><td>2004 Hz</td></tr><tr><td>MF</td><td>7</td><td>42.8 mm</td><td>256.8 mm</td><td>4007 Hz</td></tr><tr><td>HF</td><td>7</td><td>21.4 mm</td><td>128.4 mm</td><td>8014 Hz</td></tr></tbody></table></div>
+<p>At the other end of the band, 513.6&#8239;mm is only 0.37&#8202;&#955; at 250&#8239;Hz. No amount
+of aperture shading gives useful directivity from a third of a wavelength &#8212; which
+is why the beamformer is superdirective rather than delay-and-sum, and why its
+robustness constraint matters so much.</p>
+</section><section id="beamformer"><span class="sec-n">&#167;4</span><h2>Beamformer</h2>
+<p>Stack every FIR tap into one vector <code>h</code>. The array&#8217;s response to a plane
+wave is then linear in <code>h</code>, and the whole design collapses to a single
+regularised least-squares problem:</p>
+<pre>minimise   &#931;_f w_f |a(f)&#7488;h &#8722; t(f)|&#178;         response fit
+         + &#947; &#931;_f u_f &#183; h&#7488; Re(E&#7431; &#915;(f) E) h   diffuse-field noise power
+         + &#961; &#931;_f u_f &#183; h&#7488; Re(E&#7431; E) h        white (self-) noise power</pre>
+<p>with target <code>t(f) = S(f)&#183;e^(&#8722;j2&#960;f&#183;&#964;(f))</code> &#8212; the intended band shape
+carrying the intended group delay. Three things make it practical: the
+normal-equation matrix is <strong>block-Toeplitz</strong>, so the 2880&#8202;&#215;&#8202;2880 system
+assembles from 1-D lag kernels in about a second; <strong>&#947; is the directivity knob
+and &#961; the robustness knob</strong>; and &#8212; the trap &#8212; <strong>the noise weight
+<code>u_f</code> must be non-zero at every frequency, including outside the output
+band.</strong></p>
+<div class="callout"><span class="eyebrow">Trap, hit while building this</span>
+<p>Where <code>u_f</code> is zero the individual channel gains are unconstrained. The fit
+only asks that they <em>cancel</em> on axis, and the superdirective solution happily
+makes them enormous and opposite. That costs nothing on paper. In the first version of
+this design it produced tens of dB of out-of-band self-noise gain and no tolerance to
+mismatch whatsoever. Holding <code>u_f</code> at 0.25 outside the band fixes it.</p></div>
+<p>Operating point: <strong>&#947;&#8202;=&#8202;0.1, &#961;&#8202;=&#8202;0.01, 192 taps per microphone at
+48&#8239;kHz</strong> &#8212; a 4.00&#8239;ms filter span.</p>
+
+<h3>Measured, broadside beam</h3>
+<p>Every figure below is measured from the <em>truncated</em> FIR bank that would run on
+the DSP, not from idealised frequency-domain weights.</p>
+<div class="tbl"><table><thead><tr><th>f (Hz)</th><th>DI</th><th>WNG</th><th>Group delay</th><th>On-axis</th><th>DI, delay-and-sum</th></tr></thead><tbody><tr><td>125</td><td class="hi">0.8</td><td>&#8722;1.4</td><td>1.51 ms</td><td>&#8722;0.44 dB</td><td>0.1</td></tr><tr><td>250</td><td class="hi">2.6</td><td>0.3</td><td>1.42 ms</td><td>&#8722;0.64 dB</td><td>0.5</td></tr><tr><td>500</td><td class="hi">4.1</td><td>5.1</td><td>0.84 ms</td><td>&#8722;0.27 dB</td><td>1.7</td></tr><tr><td>1000</td><td class="hi">6.2</td><td>8.0</td><td>0.54 ms</td><td>&#8722;0.23 dB</td><td>4.3</td></tr><tr><td>2000</td><td class="hi">8.5</td><td>10.4</td><td>0.53 ms</td><td>&#8722;0.07 dB</td><td>7.3</td></tr><tr><td>4000</td><td class="hi">10.5</td><td>11.0</td><td>0.70 ms</td><td>&#8722;0.07 dB</td><td>9.9</td></tr><tr><td>6300</td><td class="hi">11.9</td><td>11.2</td><td>0.70 ms</td><td>&#8722;0.05 dB</td><td>11.5</td></tr></tbody><tfoot><tr><td>mean 200 Hz &#8211; 7 kHz</td><td>9.54 dB</td><td>&#8805; &#8722;0.4</td><td>&#8212;</td><td>1.00 dB p-p</td><td>8.56 dB</td></tr></tfoot></table></div>
+
+<figure><div class="figscroll"><svg viewBox="0 0 560 322" width="560" role="img" aria-label="Polar beam pattern of the broadside beam at four frequencies"><path d="M 92.5 286.0 A 187.5 187.5 0 0 1 467.5 286.0" fill="none" class="gridline"/><text x="284.0" y="109.5" class="tick">-10</text><path d="M 155.0 286.0 A 125.0 125.0 0 0 1 405.0 286.0" fill="none" class="gridline"/><text x="284.0" y="172.0" class="tick">-20</text><path d="M 217.5 286.0 A 62.5 62.5 0 0 1 342.5 286.0" fill="none" class="gridline"/><text x="284.0" y="234.5" class="tick">-30</text><path d="M 280.0 286.0 A 0.0 0.0 0 0 1 280.0 286.0" fill="none" class="gridline"/><text x="284.0" y="297.0" class="tick">-40</text><line class="gridline" x1="280.0" y1="286.0" x2="30.0" y2="286.0"/><text x="15.0" y="290.0" text-anchor="middle" class="tick">-90&#176;</text><line class="gridline" x1="280.0" y1="286.0" x2="63.5" y2="161.0"/><text x="50.5" y="157.5" text-anchor="middle" class="tick">-60&#176;</text><line class="gridline" x1="280.0" y1="286.0" x2="155.0" y2="69.5"/><text x="147.5" y="60.5" text-anchor="middle" class="tick">-30&#176;</text><line class="gridline" x1="280.0" y1="286.0" x2="280.0" y2="36.0"/><text x="280.0" y="25.0" text-anchor="middle" class="tick">0&#176;</text><line class="gridline" x1="280.0" y1="286.0" x2="405.0" y2="69.5"/><text x="412.5" y="60.5" text-anchor="middle" class="tick">30&#176;</text><line class="gridline" x1="280.0" y1="286.0" x2="496.5" y2="161.0"/><text x="509.5" y="157.5" text-anchor="middle" class="tick">60&#176;</text><line class="gridline" x1="280.0" y1="286.0" x2="530.0" y2="286.0"/><text x="545.0" y="290.0" text-anchor="middle" class="tick">90&#176;</text><polyline class="pol" data-f="500" points="76.5,286.0 76.6,282.4 76.7,278.9 77.0,275.4 77.5,271.8 78.0,268.3 78.7,264.8 79.4,261.4 80.3,257.9 81.4,254.5 82.5,251.2 83.9,247.9 85.2,244.6 86.8,241.4 88.5,238.3 90.3,235.2 92.3,232.2 94.3,229.2 96.6,226.4 98.9,223.7 101.5,221.0 104.2,218.5 107.1,216.1 110.2,213.9 113.4,211.8 116.8,209.9 120.5,208.2 124.4,206.7 128.5,205.5 132.9,204.5 137.6,203.8 142.7,203.5 148.1,203.6 154.0,204.2 160.4,205.3 167.4,207.1 175.0,209.7 183.4,213.2 192.3,217.5 201.0,222.0 207.5,225.2 208.8,224.1 204.7,218.2 198.1,209.6 191.4,200.5 185.6,191.6 180.8,183.3 176.9,175.5 173.9,168.2 171.5,161.2 169.8,154.7 168.6,148.4 167.9,142.5 167.5,136.8 167.5,131.2 167.9,125.9 168.6,120.8 169.5,115.9 170.7,111.1 172.2,106.5 173.8,102.1 175.7,97.8 177.7,93.6 180.0,89.6 182.4,85.8 184.9,82.1 187.6,78.5 190.5,75.1 193.4,71.8 196.6,68.7 199.8,65.6 203.1,62.8 206.6,60.1 210.1,57.5 213.8,55.1 217.5,52.8 221.3,50.6 225.2,48.6 229.2,46.8 233.2,45.1 237.2,43.5 241.4,42.0 245.5,40.8 249.8,39.7 254.0,38.7 258.3,37.9 262.6,37.2 266.9,36.7 271.3,36.3 275.6,36.1 280.0,36.0 284.4,36.1 288.7,36.3 293.1,36.7 297.4,37.2 301.7,37.9 306.0,38.7 310.2,39.7 314.5,40.8 318.6,42.0 322.8,43.5 326.8,45.1 330.8,46.8 334.8,48.6 338.7,50.6 342.5,52.8 346.2,55.1 349.9,57.5 353.4,60.1 356.9,62.8 360.2,65.6 363.4,68.7 366.6,71.8 369.5,75.1 372.4,78.5 375.1,82.1 377.6,85.8 380.0,89.6 382.3,93.6 384.3,97.8 386.2,102.1 387.8,106.5 389.3,111.1 390.5,115.9 391.4,120.8 392.1,125.9 392.5,131.2 392.5,136.8 392.1,142.5 391.4,148.4 390.2,154.7 388.5,161.2 386.1,168.2 383.1,175.5 379.2,183.3 374.4,191.6 368.6,200.5 361.9,209.6 355.3,218.2 351.2,224.1 352.5,225.2 359.0,222.0 367.7,217.5 376.6,213.2 385.0,209.7 392.6,207.1 399.6,205.3 406.0,204.2 411.9,203.6 417.3,203.5 422.4,203.8 427.1,204.5 431.5,205.5 435.6,206.7 439.5,208.2 443.2,209.9 446.6,211.8 449.8,213.9 452.9,216.1 455.8,218.5 458.5,221.0 461.1,223.7 463.4,226.4 465.7,229.2 467.7,232.2 469.7,235.2 471.5,238.3 473.2,241.4 474.8,244.6 476.1,247.9 477.5,251.2 478.6,254.5 479.7,257.9 480.6,261.4 481.3,264.8 482.0,268.3 482.5,271.8 483.0,275.4 483.3,278.9 483.4,282.4 483.5,286.0" fill="none" stroke="var(--accent)" stroke-width="2.2" style="display:none"/><polyline class="pol" data-f="1000" points="117.9,286.0 118.1,283.2 118.4,280.4 119.0,277.6 119.8,274.8 120.8,272.1 122.1,269.4 123.6,266.8 125.3,264.3 127.4,261.8 129.8,259.5 132.4,257.3 135.4,255.3 138.7,253.4 142.3,251.7 146.5,250.2 151.0,249.0 156.2,248.1 161.9,247.6 168.3,247.5 175.6,248.0 183.7,249.0 192.7,250.7 202.3,253.0 211.3,255.4 216.6,256.4 215.5,254.5 208.8,249.7 200.1,243.5 191.8,237.1 184.5,230.9 178.3,224.9 173.2,219.3 168.9,213.9 165.5,208.8 162.8,203.9 160.7,199.3 159.1,194.9 158.0,190.7 157.5,186.8 157.3,183.0 157.5,179.5 158.1,176.3 159.1,173.3 160.5,170.6 162.2,168.2 164.3,166.1 166.7,164.5 169.4,163.2 172.5,162.4 176.1,162.1 180.0,162.5 184.4,163.7 189.4,165.7 195.0,169.0 201.5,173.9 209.2,181.0 218.8,191.8 231.9,209.1 254.6,243.7 280.0,286.0 244.5,221.9 229.2,190.5 220.9,170.1 215.8,154.4 212.7,141.6 210.8,130.6 209.9,120.9 209.8,112.3 210.3,104.4 211.3,97.2 212.7,90.6 214.5,84.6 216.7,79.0 219.2,73.8 221.9,69.0 224.8,64.6 228.0,60.6 231.3,56.8 234.8,53.4 238.5,50.4 242.2,47.6 246.2,45.2 250.2,43.0 254.3,41.1 258.4,39.6 262.7,38.3 267.0,37.3 271.3,36.6 275.6,36.2 280.0,36.0 284.4,36.2 288.7,36.6 293.0,37.3 297.3,38.3 301.6,39.6 305.7,41.1 309.8,43.0 313.8,45.2 317.8,47.6 321.5,50.4 325.2,53.4 328.7,56.8 332.0,60.6 335.2,64.6 338.1,69.0 340.8,73.8 343.3,79.0 345.5,84.6 347.3,90.6 348.7,97.2 349.7,104.4 350.2,112.3 350.1,120.9 349.2,130.6 347.3,141.6 344.2,154.4 339.1,170.1 330.8,190.5 315.5,221.9 280.0,286.0 305.4,243.7 328.1,209.1 341.2,191.8 350.8,181.0 358.5,173.9 365.0,169.0 370.6,165.7 375.6,163.7 380.0,162.5 383.9,162.1 387.5,162.4 390.6,163.2 393.3,164.5 395.7,166.1 397.8,168.2 399.5,170.6 400.9,173.3 401.9,176.3 402.5,179.5 402.7,183.0 402.5,186.8 402.0,190.7 400.9,194.9 399.3,199.3 397.2,203.9 394.5,208.8 391.1,213.9 386.8,219.3 381.7,224.9 375.5,230.9 368.2,237.1 359.9,243.5 351.2,249.7 344.5,254.5 343.4,256.4 348.7,255.4 357.7,253.0 367.3,250.7 376.3,249.0 384.4,248.0 391.7,247.5 398.1,247.6 403.8,248.1 409.0,249.0 413.5,250.2 417.7,251.7 421.3,253.4 424.6,255.3 427.6,257.3 430.2,259.5 432.6,261.8 434.7,264.3 436.4,266.8 437.9,269.4 439.2,272.1 440.2,274.8 441.0,277.6 441.6,280.4 441.9,283.2 442.1,286.0" fill="none" stroke="var(--accent)" stroke-width="2.2" style="display:block"/><polyline class="pol" data-f="2000" points="138.6,286.0 138.5,283.5 138.5,281.1 138.4,278.6 138.4,276.1 138.4,273.6 138.3,271.1 138.3,268.6 138.3,266.1 138.3,263.6 138.4,261.0 138.6,258.5 139.0,256.0 139.4,253.5 140.0,251.1 140.7,248.7 141.6,246.3 142.8,244.1 144.2,241.9 145.9,239.8 147.9,237.9 150.3,236.2 153.0,234.7 156.2,233.5 160.0,232.6 164.3,232.1 169.4,232.1 175.3,232.7 182.3,234.1 190.8,236.6 201.5,240.7 215.4,247.2 235.4,258.1 271.7,280.6 280.0,286.0 254.3,268.0 227.7,248.0 212.2,234.9 201.8,224.9 194.5,216.8 189.3,209.9 185.7,204.0 183.3,199.0 182.1,194.7 181.9,191.2 182.5,188.5 184.1,186.6 186.5,185.8 189.9,185.9 194.3,187.4 199.9,190.5 207.1,195.9 216.6,204.8 230.0,219.7 253.0,248.8 280.0,286.0 247.6,238.0 228.8,207.1 218.6,187.8 212.5,173.7 208.8,162.6 206.7,153.8 205.9,146.7 206.1,141.0 207.3,136.9 209.1,134.0 211.7,132.6 215.0,133.0 219.1,135.2 223.9,140.0 229.9,148.3 237.5,162.6 248.6,189.3 277.6,278.2 256.2,203.0 245.6,157.5 241.5,131.4 240.0,112.7 240.1,98.1 241.2,86.2 243.0,76.2 245.4,67.8 248.3,60.6 251.6,54.6 255.1,49.4 258.9,45.2 262.9,41.8 267.1,39.3 271.3,37.5 275.6,36.4 280.0,36.0 284.4,36.4 288.7,37.5 292.9,39.3 297.1,41.8 301.1,45.2 304.9,49.4 308.4,54.6 311.7,60.6 314.6,67.8 317.0,76.2 318.8,86.2 319.9,98.1 320.0,112.7 318.5,131.4 314.4,157.5 303.8,203.0 282.4,278.2 311.4,189.3 322.5,162.6 330.1,148.3 336.1,140.0 340.9,135.2 345.0,133.0 348.3,132.6 350.9,134.0 352.7,136.9 353.9,141.0 354.1,146.7 353.3,153.8 351.2,162.6 347.5,173.7 341.4,187.8 331.2,207.1 312.4,238.0 280.0,286.0 307.0,248.8 330.0,219.7 343.4,204.8 352.9,195.9 360.1,190.5 365.7,187.4 370.1,185.9 373.5,185.8 375.9,186.6 377.5,188.5 378.1,191.2 377.9,194.7 376.7,199.0 374.3,204.0 370.7,209.9 365.5,216.8 358.2,224.9 347.8,234.9 332.3,248.0 305.7,268.0 280.0,286.0 288.3,280.6 324.6,258.1 344.6,247.2 358.5,240.7 369.2,236.6 377.7,234.1 384.7,232.7 390.6,232.1 395.7,232.1 400.0,232.6 403.8,233.5 407.0,234.7 409.7,236.2 412.1,237.9 414.1,239.8 415.8,241.9 417.2,244.1 418.4,246.3 419.3,248.7 420.0,251.1 420.6,253.5 421.0,256.0 421.4,258.5 421.6,261.0 421.7,263.6 421.7,266.1 421.7,268.6 421.7,271.1 421.6,273.6 421.6,276.1 421.6,278.6 421.5,281.1 421.5,283.5 421.4,286.0" fill="none" stroke="var(--accent)" stroke-width="2.2" style="display:none"/><polyline class="pol" data-f="4000" points="96.2,286.0 96.3,282.8 96.4,279.6 96.6,276.4 96.8,273.2 97.1,270.0 97.6,266.8 98.2,263.7 99.0,260.6 99.9,257.5 101.1,254.5 102.6,251.5 104.4,248.7 106.6,246.0 109.2,243.4 112.4,241.1 116.2,239.0 120.7,237.3 126.2,236.0 133.0,235.4 141.2,235.5 151.7,236.8 165.6,239.8 185.6,245.9 220.0,259.3 280.0,286.0 218.1,255.8 185.4,237.8 167.3,226.1 155.4,216.9 147.3,209.4 141.8,203.0 138.3,197.5 136.5,192.8 136.3,189.0 137.5,186.2 140.0,184.3 144.2,183.7 150.0,184.5 157.9,187.1 168.5,192.4 183.4,202.0 206.7,220.0 261.3,268.5 233.9,241.5 201.8,207.8 187.3,190.0 179.6,178.4 175.8,170.3 174.8,165.0 176.0,162.0 179.2,161.5 184.2,163.4 191.4,168.4 201.1,177.4 214.7,192.8 236.0,220.8 280.0,286.0 246.5,232.5 230.0,202.7 223.7,188.4 222.1,181.5 223.7,180.0 227.8,183.5 234.4,192.5 244.0,208.8 258.7,238.1 280.0,286.0 280.0,286.0 267.8,254.2 268.0,253.0 278.8,282.6 280.0,286.0 264.0,233.8 255.8,201.5 252.5,183.6 252.3,174.9 254.5,175.5 259.5,189.8 272.6,248.0 266.1,207.1 258.2,148.4 256.1,115.9 256.3,93.2 257.9,76.1 260.5,62.9 263.7,52.8 267.4,45.3 271.4,40.1 275.7,37.0 280.0,36.0 284.3,37.0 288.6,40.1 292.6,45.3 296.3,52.8 299.5,62.9 302.1,76.1 303.7,93.2 303.9,115.9 301.8,148.4 293.9,207.1 287.4,248.0 300.5,189.8 305.5,175.5 307.7,174.9 307.5,183.6 304.2,201.5 296.0,233.8 280.0,286.0 281.2,282.6 292.0,253.0 292.2,254.2 280.0,286.0 280.0,286.0 301.3,238.1 316.0,208.8 325.6,192.5 332.2,183.5 336.3,180.0 337.9,181.5 336.3,188.4 330.0,202.7 313.5,232.5 280.0,286.0 324.0,220.8 345.3,192.8 358.9,177.4 368.6,168.4 375.8,163.4 380.8,161.5 384.0,162.0 385.2,165.0 384.2,170.3 380.4,178.4 372.7,190.0 358.2,207.8 326.1,241.5 298.7,268.5 353.3,220.0 376.6,202.0 391.5,192.4 402.1,187.1 410.0,184.5 415.8,183.7 420.0,184.3 422.5,186.2 423.7,189.0 423.5,192.8 421.7,197.5 418.2,203.0 412.7,209.4 404.6,216.9 392.7,226.1 374.6,237.8 341.9,255.8 280.0,286.0 340.0,259.3 374.4,245.9 394.4,239.8 408.3,236.8 418.8,235.5 427.0,235.4 433.8,236.0 439.3,237.3 443.8,239.0 447.6,241.1 450.8,243.4 453.4,246.0 455.6,248.7 457.4,251.5 458.9,254.5 460.1,257.5 461.0,260.6 461.8,263.7 462.4,266.8 462.9,270.0 463.2,273.2 463.4,276.4 463.6,279.6 463.7,282.8 463.8,286.0" fill="none" stroke="var(--accent)" stroke-width="2.2" style="display:none"/></svg></div>
+<div class="seg" role="group" aria-label="Beam pattern frequency">
+<button type="button" data-f="500">500 Hz</button>
+<button type="button" data-f="1000" aria-pressed="true">1 kHz</button>
+<button type="button" data-f="2000">2 kHz</button>
+<button type="button" data-f="4000">4 kHz</button></div>
+<figcaption>Broadside beam pattern, dB relative to on-axis. The &#8722;6&#8239;dB beamwidth
+runs from 94&#176; at 250&#8239;Hz to 8&#176; at 6.3&#8239;kHz. A superdirective design minimises
+<b>integrated</b> diffuse noise, so it places deep nulls at particular angles rather
+than a smooth taper &#8212; mean off-lobe rejection (&#8722;12.8 to &#8722;21.7&#8239;dB) is the
+meaningful figure, not any single angle.</figcaption></figure>
+
+<h3>Steering, and why group delay stays put</h3>
+<div class="tbl"><table><thead><tr><th>Steered to</th><th>Mean DI</th><th>Ripple</th><th>Worst WNG</th><th>Group delay, HF</th></tr></thead><tbody><tr><td>0&#176;</td><td>9.54 dB</td><td>1.00 dB</td><td>&#8722;0.4 dB</td><td>0.70 ms</td></tr><tr><td>25&#176;</td><td>9.42 dB</td><td>0.82 dB</td><td>2.9 dB</td><td>0.70 ms</td></tr><tr><td>45&#176;</td><td>9.35 dB</td><td>0.60 dB</td><td>4.6 dB</td><td>0.70 ms</td></tr><tr><td>60&#176;</td><td>9.67 dB</td><td>0.52 dB</td><td>3.7 dB</td><td>0.70 ms</td></tr><tr><td>75&#176;</td><td>12.07 dB</td><td>0.50 dB</td><td>2.2 dB</td><td>0.70 ms</td></tr></tbody></table></div>
+<p>Directivity <em>rises</em> toward endfire &#8212; the main lobe narrows in the steering
+plane and the ambiguity cone shrinks. More usefully, group delay is identical for
+every beam, so a beam switch produces no timing step, only a gain cross-fade.</p>
+<p>Beams are spaced uniformly in <code>sin&#952;</code>, not in angle, which is what keeps
+the main lobe a constant width across coverage. At a spacing of 0.06 that is
+<strong>34 beams</strong> over &#177;75&#176;, and a talker anywhere in coverage is within
+1.2&#8239;dB of a beam centre. Widening to 21 beams costs 3.2&#8239;dB; to 14 beams,
+7.7&#8239;dB.</p>
+<p>A 300-trial Monte-Carlo over per-microphone gain (0.5&#8239;dB), phase (2&#176;) and
+position (0.3&#8239;mm) tolerance moves mean DI from 9.54 to 9.53&#8239;dB, with the 5th
+percentile at 9.52&#8239;dB. Essentially nothing &#8212; which is the entire point of
+constraining white-noise gain instead of chasing maximum DI. An unconstrained
+superdirective design on this aperture reaches higher DI on paper and falls apart on
+the bench.</p>
+</section><section id="latency"><span class="sec-n">&#167;5</span><h2>Latency</h2>
+<figure><div class="figscroll"><svg viewBox="0 0 860 232" width="860" role="img" aria-label="Latency budget: 1.42 milliseconds total, shown against a 32 millisecond STFT beamformer"><text x="4" y="14" class="axlab">exploded &#8212; 1.42 ms end to end</text><rect x="4.0" y="26" width="10.5" height="34" fill="var(--muted)" opacity="0.3"/><line x1="4.0" y1="62" x2="4.0" y2="88" stroke="var(--rule)" stroke-width="1"/><text x="4.0" y="104" text-anchor="start" class="axlab" fill="var(--ink)">Mic + preamp</text><text x="4.0" y="116" text-anchor="start" class="tick">0.02 ms</text><rect x="16.0" y="26" width="208.5" height="34" fill="var(--muted)" opacity="0.4"/><text x="121.0" y="78" text-anchor="middle" class="axlab" fill="var(--ink)">ADC decimation</text><text x="121.0" y="90" text-anchor="middle" class="tick">0.35 ms</text><rect x="226.0" y="26" width="40.5" height="34" fill="var(--muted)" opacity="0.5"/><line x1="226.0" y1="62" x2="226.0" y2="88" stroke="var(--rule)" stroke-width="1"/><text x="226.0" y="104" text-anchor="start" class="axlab" fill="var(--ink)">Calibration FIR</text><text x="226.0" y="116" text-anchor="start" class="tick">0.07 ms</text><rect x="268.0" y="26" width="418.5" height="34" fill="var(--accent)" opacity="1"/><text x="478.0" y="78" text-anchor="middle" class="axlab" fill="var(--ink)">Beamformer FIR</text><text x="478.0" y="90" text-anchor="middle" class="tick">0.70 ms</text><rect x="688.0" y="26" width="166.5" height="34" fill="var(--muted)" opacity="0.7"/><text x="772.0" y="78" text-anchor="middle" class="axlab" fill="var(--ink)">DAC reconstruction</text><text x="772.0" y="90" text-anchor="middle" class="tick">0.28 ms</text><text x="4" y="164" class="axlab">to scale against the alternative</text><rect x="4" y="174" width="37.8" height="16" fill="var(--accent)"/><text x="50.8" y="186" class="tick" fill="var(--ink)">1.42 ms &#8212; this design</text><rect x="4" y="198" width="852.0" height="16" fill="var(--cost)" opacity=".28"/><text x="13" y="210" class="tick" fill="var(--ink)">32 ms &#8212; a 512-point STFT beamformer, before any filtering</text></svg></div>
+<figcaption>The budget, exploded above and shown to scale below against the STFT
+beamformer the same job is usually built with. Stages contributing zero &#8212; beam
+cross-fade, AGC, line driver &#8212; are omitted.</figcaption></figure>
+<div class="tbl"><table><thead><tr><th>Stage</th><th>Delay</th><th>Notes</th></tr></thead><tbody><tr><td>Mic + preamp + anti-alias</td><td>0.02 ms</td><td>analogue, 1st order at 40 kHz</td></tr><tr><td>ADC decimation filter</td><td class="cost">0.35 ms</td><td>budget allocation &#8212; verify</td></tr><tr><td>Calibration FIR, 7 tap</td><td>0.07 ms</td><td>per-mic gain/phase trim</td></tr><tr><td>Beamformer FIR, above 3 kHz</td><td class="hi">0.70 ms</td><td>measured from the FIR bank</td></tr><tr><td>Beam cross-fade</td><td>0.00 ms</td><td>two beams run in parallel</td></tr><tr><td>AGC / limiter</td><td>0.00 ms</td><td>zero look-ahead, soft knee</td></tr><tr><td>DAC reconstruction filter</td><td class="cost">0.28 ms</td><td>budget allocation &#8212; verify</td></tr><tr><td>Balanced line driver</td><td>0.00 ms</td><td>analogue</td></tr></tbody><tfoot><tr><td>Total, above 3 kHz</td><td>1.42 ms</td><td>2.21 ms below 250 Hz</td></tr></tfoot></table></div>
+
+<h3>Why the group delay is not constant</h3>
+<p>The single most important latency decision. The target delay tapers from
+1.50&#8239;ms below 200&#8239;Hz to 0.70&#8239;ms above 3&#8239;kHz, for two independent reasons
+that happen to agree.</p>
+<p><strong>Aperture crossing is a hard physical floor.</strong> Any beamformer that
+coherently sums an aperture <code>A</code> steered at &#952; must wait for the wavefront to
+cross it: <code>A&#183;sin&#952;/c</code>. At &#177;75&#176; the full 513.6&#8239;mm low-frequency
+aperture needs 1.45&#8239;ms &#8212; so 1.50&#8239;ms is that floor plus margin, not an
+arbitrary choice. But high frequencies only use the inner 128.4&#8239;mm sub-aperture,
+needing 0.36&#8239;ms. Making them wait for the low-frequency aperture would throw away
+a millisecond for nothing.</p>
+<p><strong>The ear tolerates delay unevenly.</strong> Blauert &amp; Laws put the audibility
+threshold for group delay at roughly 1.6&#8239;ms at 8&#8239;kHz, 2&#8239;ms at 4&#8239;kHz,
+3.2&#8239;ms at 1&#8239;kHz and 10&#8239;ms at 500&#8239;Hz. Spending delay where it is both
+needed and inaudible is free.</p>
+<div class="callout"><span class="eyebrow">The taper has to stay gentle</span>
+<p>A steep d&#964;/df is an all-pass a short FIR cannot realise, and it is paid for in
+on-axis ripple. An early attempt at 1.6&#8202;&#8594;&#8202;0.35&#8239;ms over 250&#8211;2000&#8239;Hz
+produced <strong>7.5&#8239;dB</strong> of ripple. The shipped 1.50&#8202;&#8594;&#8202;0.70&#8239;ms over
+200&#8211;3000&#8239;Hz produces <strong>1.00&#8239;dB</strong>.</p></div>
+<p>Two notes on the numbers. <strong>The converters dominate, not the DSP</strong> &#8212;
+0.63&#8239;ms of the 1.42&#8239;ms is ADC and DAC filtering, and those two figures are
+<em>allocations</em>, not measurements. They assume the chosen converters offer a
+short-group-delay filter mode and that it is enabled; a converter left in default
+linear-phase mode can be three to five times worse and would dominate the budget on
+its own. And <strong>the AGC has no look-ahead</strong>: the conventional look-ahead
+limiter would add 0.3&#8211;1&#8239;ms, so this design takes soft-knee compression with a
+fast release and a hard clip guard instead, accepting a few tenths of a dB of
+transient overshoot rather than paying for it on every sample.</p>
+<p>For scale: 1.42&#8239;ms is 0.49&#8239;m of air. Used for reinforcement in the same room,
+the array is acoustically nearer the listener than a loudspeaker half a metre away, so
+the Haas-effect budget is essentially untouched.</p>
+</section><section id="talker"><span class="sec-n">&#167;6</span><h2>Finding the talker</h2>
+<p>SRP-PHAT runs on a 16&#8239;kHz path: 32&#8239;ms frames, 16&#8239;ms hop, 300&#8211;3800&#8239;Hz,
+across a 65-point angular grid with a parabolic fit through the peak for sub-grid
+resolution. It sits <strong>off the audio path</strong> &#8212; its 32&#8239;ms of analysis
+latency costs nothing because it only selects which pre-computed beam is active. The
+audio never passes through it.</p>
+<p>Rather than summing all 105 microphone-pair cross-spectra per direction, the identity
+<code>&#931;&#8342;&lt;&#8342;&#8342; Re(x&#7522;x&#8342;* e^&#8722;&#690;&#7527;&#916;&#964;) = (|&#931;&#7522; x&#7522;d&#7522;*|&#178; &#8722; M)/2</code>
+gives identical values in O(M) instead of O(M&#178;).</p>
+<div class="tbl"><table><thead><tr><th>Scenario</th><th>Median error</th><th>Frames &gt; 5&#176;</th></tr></thead><tbody><tr><td>Quiet room, single talker</td><td>0.06&#176;</td><td>0.0 %</td></tr><tr><td>Noisy room, 5 dB SNR</td><td>0.27&#176;</td><td>0.0 %</td></tr><tr><td>Competing talker 6 dB down</td><td>0.17&#176;</td><td class="cost">14.5 %</td></tr><tr><td>Competing talker 3 dB down</td><td>0.25&#176;</td><td class="cost">28.2 %</td></tr></tbody></table></div>
+<p>The median is excellent throughout. The interesting column is the right-hand one:
+with a competing talker only 3&#8239;dB down, more than a quarter of frames point at the
+wrong person. <strong>Per-frame localisation is not talker tracking.</strong></p>
+<h3>The tracker</h3>
+<p>Which is why the raw peak never steers anything. Between SRP-PHAT and the beam bank
+sits a hysteretic state machine:</p>
+<ul>
+<li>Per-beam scores smoothed with a 120&#8239;ms time constant.</li>
+<li>A per-beam noise floor tracked as a 5&#8239;s running minimum and subtracted &#8212;
+this is what stops HVAC, a projector fan or a laptop on the table from becoming
+&#8220;the talker&#8221;.</li>
+<li>A challenger must beat the held beam by <strong>3&#8239;dB continuously for
+150&#8239;ms</strong> before the beam moves.</li>
+<li>400&#8239;ms hangover after speech offset, so the beam does not wander during natural
+pauses.</li>
+<li>Beam changes cross-fade over 30&#8239;ms between the two running beamformers.</li>
+</ul>
+<p>Measured on a turn-taking scenario &#8212; talker A at &#8722;35&#176; for three seconds, then
+talker B at +40&#176;: the beam is correctly on A for <strong>100&#8239;%</strong> of frames
+before hand-over, locks onto B in <strong>160&#8239;ms</strong>, and switches
+<strong>once</strong> in six seconds. One switch, where one switch was warranted. The
+160&#8239;ms is essentially the 150&#8239;ms hysteresis window &#8212; the tracker is as fast as
+it is allowed to be, and the trade is explicit and tunable rather than emergent.</p>
+</section><section id="noise"><span class="sec-n">&#167;7</span><h2>Two different gains</h2>
+<p>The classic error in superdirective array design is to quote the directivity index
+and imply it applies to all noise. It does not.</p>
+<ul>
+<li><strong>Room noise</strong> is close to a diffuse, spherically isotropic field. The
+array&#8217;s gain against it is the <strong>directivity index</strong>.</li>
+<li><strong>Microphone self-noise</strong> is uncorrelated between elements. The
+array&#8217;s gain against it is the <strong>white-noise gain</strong> &#8212; which a
+superdirective design drives <em>negative</em> at low frequency.</li>
+</ul>
+<figure><div class="figscroll"><svg viewBox="0 0 860 342" width="860" role="img" aria-label="Directivity index and white-noise gain versus frequency"><line class="gridline" x1="40" y1="264.0" x2="842" y2="264.0"/><text x="33" y="267.4" text-anchor="end" class="tick">-4</text><line class="gridline" x1="40" y1="204.5" x2="842" y2="204.5"/><text x="33" y="207.9" text-anchor="end" class="tick">0</text><line class="gridline" x1="40" y1="145.0" x2="842" y2="145.0"/><text x="33" y="148.4" text-anchor="end" class="tick">4</text><line class="gridline" x1="40" y1="85.5" x2="842" y2="85.5"/><text x="33" y="88.9" text-anchor="end" class="tick">8</text><line class="gridline" x1="40" y1="26.0" x2="842" y2="26.0"/><text x="33" y="29.4" text-anchor="end" class="tick">12</text><line class="gridline" x1="40.0" y1="26" x2="40.0" y2="264"/><text x="40.0" y="279" text-anchor="middle" class="tick">125</text><line class="gridline" x1="200.4" y1="26" x2="200.4" y2="264"/><text x="200.4" y="279" text-anchor="middle" class="tick">250</text><line class="gridline" x1="360.8" y1="26" x2="360.8" y2="264"/><text x="360.8" y="279" text-anchor="middle" class="tick">500</text><line class="gridline" x1="521.2" y1="26" x2="521.2" y2="264"/><text x="521.2" y="279" text-anchor="middle" class="tick">1k</text><line class="gridline" x1="681.6" y1="26" x2="681.6" y2="264"/><text x="681.6" y="279" text-anchor="middle" class="tick">2k</text><line class="gridline" x1="842.0" y1="26" x2="842.0" y2="264"/><text x="842.0" y="279" text-anchor="middle" class="tick">4k</text><text x="40" y="17" class="axlab">gain, dB</text><text x="842" y="293" text-anchor="end" class="axlab">frequency, Hz</text><polyline points="-11.6,203.3 -0.3,203.2 10.8,203.0 22.1,202.9 33.2,202.7 44.6,202.6 55.7,202.3 66.9,202.1 78.1,202.0 89.3,201.7 100.6,201.4 111.8,201.1 123.1,200.6 134.3,200.3 145.5,199.9 156.7,199.6 168.0,199.0 179.2,198.4 190.5,197.8 201.7,197.2 212.9,196.5 224.1,195.7 235.3,194.7 246.6,193.9 257.8,192.7 269.0,192.0 280.2,190.8 291.4,189.5 302.7,188.1 313.9,186.4 325.1,185.0 336.4,183.1 347.6,181.1 358.8,179.2 370.1,177.1 381.3,175.2 392.5,172.7 403.7,170.1 414.9,167.6 426.2,165.2 437.4,162.3 448.6,159.4 459.8,156.6 471.1,153.9 482.3,150.9 493.5,148.0 504.8,144.7 516.0,141.7 527.2,138.8 538.4,135.6 549.7,132.7 560.9,129.5 572.1,126.6 583.3,123.7 594.6,120.8 605.8,117.6 617.0,114.7 628.2,111.5 639.5,108.3 650.7,105.1 661.9,102.3 673.1,99.0 684.4,96.1 695.6,92.9 706.8,89.8 718.0,86.7 729.3,83.7 740.5,80.7 751.7,77.6 762.9,74.5 774.2,71.5 785.4,69.1 796.6,67.5 807.9,65.7 819.1,63.2 830.3,60.1 841.5,57.7 852.8,55.8 864.0,52.9 875.2,49.9 886.4,47.3 897.7,44.3 908.9,41.9 920.1,40.3 931.3,37.5 942.6,34.6 953.8,31.8 965.0,29.3 976.2,28.7 987.5,27.2" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"/><polyline points="-11.6,229.8 -0.3,229.0 10.8,228.2 22.1,227.3 33.2,226.4 44.6,225.3 55.7,224.4 66.9,223.4 78.1,222.3 89.3,221.3 100.6,219.1 111.8,218.0 123.1,215.7 134.3,214.6 145.5,212.1 156.7,210.9 168.0,208.4 179.2,205.8 190.5,203.2 201.7,200.5 212.9,197.7 224.1,194.8 235.3,190.2 246.6,187.1 257.8,182.0 269.0,178.6 280.2,173.3 291.4,167.6 302.7,161.7 313.9,153.6 325.1,147.7 336.4,140.1 347.6,133.5 358.8,128.3 370.1,124.8 381.3,122.5 392.5,121.2 403.7,120.6 414.9,120.0 426.2,119.1 437.4,117.2 448.6,114.7 459.8,111.7 471.1,108.9 482.3,105.4 493.5,101.9 504.8,96.7 516.0,90.1 527.2,83.0 538.4,76.1 549.7,72.1 560.9,70.2 572.1,68.4 583.3,66.2 594.6,64.7 605.8,64.5 617.0,63.5 628.2,59.6 639.5,55.6 650.7,54.0 661.9,52.3 673.1,50.4 684.4,50.7 695.6,49.9 706.8,48.6 718.0,49.2 729.3,49.1 740.5,49.9 751.7,49.8 762.9,48.6 774.2,49.7 785.4,53.7 796.6,59.0 807.9,58.3 819.1,51.1 830.3,42.4 841.5,38.8 852.8,39.2 864.0,37.9 875.2,35.8 886.4,35.5 897.7,35.1 908.9,35.2 920.1,36.7 931.3,37.0 942.6,36.0 953.8,37.0 965.0,41.2 976.2,45.5 987.5,40.6" fill="none" stroke="var(--cost)" stroke-width="2"/><polyline points="-11.6,196.5 -0.3,195.6 10.8,194.7 22.1,193.6 33.2,192.6 44.6,191.6 55.7,190.5 66.9,189.3 78.1,188.1 89.3,187.1 100.6,184.6 111.8,183.4 123.1,180.8 134.3,179.7 145.5,177.1 156.7,175.8 168.0,173.3 179.2,170.9 190.5,168.4 201.7,166.0 212.9,163.7 224.1,161.5 235.3,158.5 246.6,156.8 257.8,154.4 269.0,152.9 280.2,151.2 291.4,149.8 302.7,148.7 313.9,147.5 325.1,146.8 336.4,145.9 347.6,144.9 358.8,143.8 370.1,142.6 381.3,141.3 392.5,139.5 403.7,137.7 414.9,135.9 426.2,134.0 437.4,131.6 448.6,128.9 459.8,126.4 471.1,123.9 482.3,121.1 493.5,118.4 504.8,115.7 516.0,113.5 527.2,111.7 538.4,110.0 549.7,108.1 560.9,105.9 572.1,103.6 583.3,101.6 594.6,98.9 605.8,95.8 617.0,92.8 628.2,90.1 639.5,87.6 650.7,85.2 661.9,83.1 673.1,80.4 684.4,77.6 695.6,74.5 706.8,71.5 718.0,68.8 729.3,66.3 740.5,63.5 751.7,60.5 762.9,57.7 774.2,55.5 785.4,54.1 796.6,52.2 807.9,49.4 819.1,48.0 830.3,49.1 841.5,49.8 852.8,48.2 864.0,45.2 875.2,43.3 886.4,40.7 897.7,37.9 908.9,36.1 920.1,33.7 931.3,30.8 942.6,28.7 953.8,26.3 965.0,23.2 976.2,20.1 987.5,18.4" fill="none" stroke="var(--accent)" stroke-width="2.6"/><line x1="40" y1="204.5" x2="842" y2="204.5" stroke="var(--ink)" stroke-width="1"/><line x1="40" y1="308" x2="62" y2="308" stroke="var(--accent)" stroke-width="2.6"/><text x="68" y="312" class="axlab" fill="var(--ink)">DI — this design</text><text x="68" y="325" class="tick">vs diffuse room noise</text><line x1="308" y1="308" x2="330" y2="308" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"/><text x="336" y="312" class="axlab" fill="var(--ink)">DI — delay-and-sum</text><text x="336" y="325" class="tick">same array</text><line x1="576" y1="308" x2="598" y2="308" stroke="var(--cost)" stroke-width="2"/><text x="604" y="312" class="axlab" fill="var(--ink)">WNG</text><text x="604" y="325" class="tick">vs microphone self-noise</text></svg></div>
+<figcaption>The two gains, measured across the band. Superdirectivity lifts DI well
+above the delay-and-sum reference exactly where it is scarce &#8212; about 2&#8239;dB
+from 250&#8239;Hz to 1&#8239;kHz, peaking at 2.4&#8239;dB near 500&#8239;Hz &#8212; while &#961; holds white-noise gain at or above
+&#8722;0.4&#8239;dB so the self-noise penalty never arrives. Left unconstrained, the WNG
+curve would dive tens of dB below the axis at low frequency and take microphone
+matching tolerance with it.</figcaption></figure>
+<p>A-weighted over the 120&#8239;Hz&#8211;8&#8239;kHz output band, referenced to a single omni
+microphone through the same band shaping:</p>
+<div class="tbl"><table><thead><tr><th></th><th>This design</th><th>Delay-and-sum</th></tr></thead><tbody><tr><td>Gain against diffuse room noise</td><td class="hi">+6.1 dB</td><td>+3.9 dB</td></tr><tr><td>Effect on microphone self-noise</td><td class="hi">&#8722;10.2 dB</td><td>&#8722;11.8 dB</td></tr></tbody></table></div>
+<p>Superdirectivity buys 2.2&#8239;dB more room-noise rejection and gives back 1.6&#8239;dB of
+self-noise benefit. Since microphone self-noise is 29&#8239;dBA and a real room is
+40&#8211;45&#8239;dBA, room noise dominates and the trade is clearly worth taking &#8212; but it
+<em>is</em> a trade, and &#961; is the knob if a quieter room or a noisier microphone
+shifts the balance.</p>
+</section><section id="output"><span class="sec-n">&#167;8</span><h2>Line output</h2>
+<h3>Acoustic to digital</h3>
+<div class="tbl"><table><thead><tr><th>Point</th><th>Value</th></tr></thead><tbody><tr><td>Mic sensitivity / self-noise / AOP</td><td>&#8722;38 dBV/Pa &#183; 29 dBA &#183; 130 dB SPL</td></tr><tr><td>Preamp gain</td><td>30 dB</td></tr><tr><td>SPL at ADC full scale</td><td>108 dB SPL</td></tr><tr><td>Quiet room, 45 dB SPL</td><td>&#8722;63.0 dBFS/mic</td></tr><tr><td>Far talker at 3 m, 55 dB SPL</td><td>&#8722;53.0 dBFS/mic</td></tr><tr><td>Normal talker at 1.5 m, 65 dB SPL</td><td>&#8722;43.0 dBFS/mic</td></tr><tr><td>Loud / close talker, 85 dB SPL</td><td>&#8722;23.0 dBFS/mic</td></tr><tr><td>Mic self-noise, one channel</td><td>&#8722;79.0 dBFS</td></tr><tr><td>Mic self-noise, beam output</td><td>&#8722;89.2 dBFS &#183; 19 dBA equiv.</td></tr><tr><td>45 dBA room noise, beam output</td><td>&#8722;69.1 dBFS &#183; 39 dBA equiv.</td></tr><tr><td>Talker-to-room-noise at output</td><td class="hi">26.1 dB &#183; single mic 20 dB</td></tr></tbody></table></div>
+<p>The 30&#8239;dB preamp gain puts ADC clip at 108&#8239;dB SPL &#8212; 22&#8239;dB below the
+microphone&#8217;s acoustic overload point, so the converter clips first and does so
+gracefully. The system is microphone-noise-limited rather than converter-limited
+(&#8722;79&#8239;dBFS of mic noise against roughly &#8722;110&#8239;dBFS for a 24-bit converter),
+which is the right place to be: analogue gain stays conservative and the rest of the
+range is taken digitally in 32-bit float at no cost.</p>
+<h3>Digital to line</h3>
+<div class="tbl"><table><thead><tr><th>Point</th><th>Value</th></tr></thead><tbody><tr><td>AGC target</td><td>&#8722;20 dBFS</td></tr><tr><td>DAC 0 dBFS</td><td>+18 dBu balanced &#183; 6.15 Vrms</td></tr><tr><td>Nominal output</td><td>+4 dBu &#183; 1.228 Vrms, at &#8722;14 dBFS</td></tr><tr><td>Headroom above nominal</td><td class="hi">14 dB</td></tr><tr><td>Unbalanced output</td><td>&#8722;10 dBV &#183; 0.316 Vrms; 0 dBFS = 2.0 Vrms</td></tr></tbody></table></div>
+<p><strong>Balanced (XLR).</strong> DAC into a differential line driver &#8212; THAT&#8239;1646,
+DRV134 or an OPA1632 discrete equivalent &#8212; on &#177;15&#8239;V rails. The +18&#8239;dBu clip
+point is 6.15&#8239;Vrms differential, or &#177;8.7&#8239;V peak per leg, comfortable on
+&#177;15&#8239;V with margin for the driver&#8217;s own headroom. 100&#8239;&#937; per leg, and the
+output must survive phantom power applied by a mistakenly-configured console.</p>
+<p><strong>Unbalanced (RCA).</strong> Same DAC through a separate buffer at &#8722;16&#8239;dB, so
+0&#8239;dBFS is 2.0&#8239;Vrms and nominal sits at the &#8722;10&#8239;dBV consumer standard.</p>
+<p><strong>AGC.</strong> 20&#8239;dB of range, 10&#8239;ms attack, 300&#8239;ms release, holding the
+beam output at &#8722;20&#8239;dBFS &#8212; deliberately slow enough not to pump on syllables, and
+frozen entirely when the tracker reports no speech so it does not spend the pause
+winding up the room noise.</p>
+</section><section id="build"><span class="sec-n">&#167;9</span><h2>Building it</h2>
+<p>Candidate parts. Every latency-critical figure must be confirmed against the
+datasheet before commitment &#8212; particularly the converter filter modes, which are the
+largest fixed term in the budget.</p>
+<div class="tbl"><table><thead><tr><th>Block</th><th>Candidate</th><th>Why</th></tr></thead><tbody><tr><td>Microphone</td><td>Analog MEMS, &#8722;38 dBV/Pa, &#8805;65 dB SNR</td><td>analogue output keeps the decimation filter, and its delay, under our control</td></tr><tr><td>Preamp</td><td>Low-noise op-amp, fixed 30 dB</td><td>no per-channel VGA &#8212; it would be a channel-matching liability</td></tr><tr><td>ADC</td><td>2 &#215; 8-ch 24-bit TDM, low-latency mode</td><td>simultaneous sampling, one shared MCLK</td></tr><tr><td>DAC</td><td>24-bit stereo, low-latency mode</td><td>&#8212;</td></tr><tr><td>Line driver</td><td>THAT 1646 / DRV134, &#177;15 V</td><td>&#8212;</td></tr><tr><td>DSP</td><td>SHARC+ or xcore.ai class</td><td>329 MMAC/s with headroom, native TDM, room for the 382 kB beam bank</td></tr></tbody></table></div>
+<div class="tbl"><table><thead><tr><th>Compute block</th><th>Cost</th></tr></thead><tbody><tr><td>Beamformer, 2 beams cross-fading (15 &#215; 192 &#215; 48 kHz &#215; 2)</td><td>276.5 MMAC/s</td></tr><tr><td>Per-mic calibration FIR (15 &#215; 7 &#215; 48 kHz)</td><td>5.0 MMAC/s</td></tr><tr><td>SRP-PHAT (105 pairs &#215; 65 beams, 62.5 fps)</td><td>47.8 MMAC/s</td></tr></tbody><tfoot><tr><td>Total</td><td>329.3 MMAC/s &#183; 382 kB coefficients</td></tr></tfoot></table></div>
+<p>The beamformer dominates, and it is dominated in turn by the 192-tap length &#8212;
+which is set by the 4&#8239;ms filter span needed to shape a beam at 200&#8239;Hz. That is
+the real cost of low-frequency directivity, and it is paid in MACs rather than in
+latency only because of the group-delay taper.</p>
+<h3>Mechanical, acoustic, calibration</h3>
+<p>Element position tolerance is &#177;0.3&#8239;mm, which is the figure the Monte-Carlo is
+run at. Sealed acoustic ports with gaskets, mesh over each port for dust and pop, and
+the PCB decoupled from the enclosure &#8212; a structure-borne vibration path is coherent
+across elements and therefore beamforms <em>perfectly</em>, straight into the output.</p>
+<p>Superdirectivity at low frequency is sensitive to gain and phase mismatch, so each
+unit is calibrated at end-of-line against a reference source and a 7-tap correction FIR
+per microphone is stored in NVM. The 0.07&#8239;ms it costs is already in the budget. All
+converters share one MCLK domain; TDM is a serial bus but the sample instants are
+simultaneous, so there is no inter-channel skew to correct &#8212; worth stating explicitly
+because it is a common source of unexplained beamformer degradation when it is
+<em>not</em> true.</p>
+<h3>Deliberately out of scope</h3>
+<ul>
+<li><strong>Acoustic echo cancellation</strong>, needed for duplex conferencing. A
+time-domain NLMS AEC adds no latency and would sit between the beamformer and the AGC,
+but it is a substantial subsystem in its own right.</li>
+<li><strong>Dereverberation.</strong> The array attenuates the reverberant field by
+construction; explicit dereverberation adds latency and is rarely worth it at this DI.</li>
+<li><strong>Multiple simultaneous outputs.</strong> The architecture extends naturally
+&#8212; 138 MMAC/s per additional talker feed &#8212; but &#8220;the primary talker&#8221; was
+specified as singular.</li>
+</ul>
+<footer>Every figure on this page is produced by <code>tools/mic_line_array_design.py</code>,
+a self-contained numpy script that designs the beamformer and then measures it. Run it
+to regenerate them.</footer>
+</section></main></div></div><script>
+(function(){
+  var seg=document.querySelector('.seg');
+  if(seg){
+    seg.addEventListener('click',function(e){
+      var b=e.target.closest('button'); if(!b) return;
+      seg.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed','false');});
+      b.setAttribute('aria-pressed','true');
+      document.querySelectorAll('.pol').forEach(function(p){
+        p.style.display = (p.dataset.f===b.dataset.f) ? 'block' : 'none';
+      });
+    });
+  }
+  document.querySelectorAll('g.row').forEach(function(g){
+    function set(on){
+      var band=g.dataset.band;
+      document.querySelectorAll('circle.mic').forEach(function(c){
+        var member=c.classList.contains('s-'+band);
+        c.setAttribute('r', on ? (member?9:4) : 6.5);
+        c.setAttribute('fill', on && !member ? 'var(--rule)' : 'var(--accent)');
+      });
+      g.querySelector('rect').setAttribute('fill', on ? 'var(--accent-soft)' : 'transparent');
+    }
+    g.addEventListener('mouseenter',function(){set(true);});
+    g.addEventListener('mouseleave',function(){set(false);});
+  });
+})();
+</script>
