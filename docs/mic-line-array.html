@@ -269,6 +269,35 @@ the <strong>TLV320AIC3107</strong>, a different part. Seeed&#8217;s &#8220;suppo
 amplified speakers&#8221; most likely describes an external <em>active</em> speaker; no
 amplifier IC is named in any Seeed document and no schematic is published, so that stays
 open &#8212; and, given the routing answer, no longer matters.</p></div>
+<h3>The device&#8217;s actual I/O</h3>
+<p>The one thing worth being unambiguous about, since the prose above buries it. Every
+physical port, what it carries, and which way.</p>
+<div class="tbl notes lefty"><table><thead><tr><th>Interface</th><th>Direction</th><th>Carries</th><th>Delay</th></tr></thead><tbody><tr><td>4 &#215; PDM MEMS mics</td><td>in</td><td>the array itself, 66 mm square</td><td>&#8212;</td></tr><tr><td>USB-C, IN (device &#8594; host)</td><td class="hi">out</td><td>2-ch: processed beam + ASR beam. 6-ch: those plus 4 raw mic channels</td><td class="cost">58 ms + USB</td></tr><tr><td>USB-C, OUT (host &#8594; device)</td><td>in</td><td>far-end audio for the loudspeaker; also the AEC reference</td><td>USB transport only</td></tr><tr><td>3.5 mm AUX jack</td><td class="hi">out</td><td class="cost">the USB OUT stream only &#8212; not the beam</td><td>small, unpublished</td></tr><tr><td>JST speaker</td><td class="hi">out</td><td>same source as the jack</td><td>small, unpublished</td></tr><tr><td>I2S (INT firmware)</td><td>both</td><td>DATA1 beam &#8594; host MCU; DATA0 far end from host MCU; DATA2 optional to DAC</td><td>58 ms on the mic side</td></tr><tr><td>I2C</td><td>both</td><td>control (xvf_host, AUDIO_MGR_*)</td><td>n/a</td></tr></tbody></table></div>
+<div class="gate"><p><strong>The fast path and the useful path are different
+directions.</strong> The two analogue output connectors are fed quickly &#8212; but only
+from the host. The microphone path is the slow one, and it has no analogue exit. There is
+no configuration in which a microphone signal leaves this device through the
+jack.</p></div>
+<div class="tbl lefty"><table><thead><tr><th>Path</th><th>Route</th><th>Total</th></tr></thead><tbody><tr><td>Capture</td><td>mic &#8594; pipeline &#8594; USB IN &#8594; host</td><td class="cost">58 ms + USB</td></tr><tr><td>Playback</td><td>host &#8594; USB OUT &#8594; I2S &#8594; DAC &#8594; jack/speaker</td><td>USB + small DAC delay</td></tr><tr><td>Mic to speaker</td><td>capture + host loopback + playback</td><td class="cost">68 ms at best</td></tr></tbody></table></div>
+<p>Two details behind those numbers. The 58&#8239;ms is XMOS&#8217;s published
+<em>minimum</em> input delay, mic in to I2S out &#8212; 928 samples at 16&#8239;kHz &#8212;
+and USB transport sits on top of it rather than inside it. The raw microphone channels in
+the 6-channel firmware are not a shortcut past it: XMOS describes that category as
+&#8220;amplified microphone data <strong>with system delay</strong>&#8221;, time-aligned to
+the processed output, so they arrive delayed too. For offline work that does not matter at
+all; for anything live it does.</p>
+<p>The separate 50&#8239;ms figure in XMOS&#8217;s table is the <em>output</em> delay and
+applies only &#8220;if far end processing on device is implemented&#8221;.
+<code>AUDIO_MGR_FAR_END_DSP_ENABLE</code> defaults to 0, so by default the playback path is
+a pass-through and that 50&#8239;ms does not apply &#8212; which is why the playback
+direction is quick.</p>
+<p>On levels, since the point of the jack was to get line level out of it: the
+TLV320AIC3104&#8217;s headphone drivers are 30&#8239;mW into 16&#8239;&#937;, about
+0.69&#8239;Vrms, with separate differential line outputs specified into 10&#8239;k&#937;.
+That is a perfectly usable consumer line level &#8212; &#8722;10&#8239;dBV nominal is
+0.316&#8239;Vrms &#8212; so had it carried the beam it would have been genuinely useful. It
+carries the far end.</p>
+
 <div class="gate"><p><strong>The question that decides it: what is actually driving
 &#8220;minimum delay&#8221;?</strong> That was two words in the brief, interpreted
 aggressively here &#8212; and everything expensive in this design descends from it. If it

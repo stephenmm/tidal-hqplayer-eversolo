@@ -108,6 +108,53 @@ matters.
 Bandwidth, at least, is a non-issue: the 16 kHz USB firmware gives the same 8 kHz
 of audio this design targets.
 
+### The device's actual I/O
+
+The one thing worth being unambiguous about, since the prose above buries it. Every
+physical port, what it carries, and which way.
+
+| Interface | Direction | Carries | Delay |
+|---|---|---|---|
+| 4 × PDM MEMS mics | in | the array itself, 66 mm square | — |
+| **USB-C, IN** (device → host) | **out** | 2-ch firmware: processed beam + ASR beam. 6-ch firmware: those two plus **4 raw mic channels** | **58 ms** + USB transport |
+| **USB-C, OUT** (host → device) | **in** | far-end audio for the loudspeaker; also the AEC reference | USB transport only |
+| **3.5 mm AUX jack** | **out** | *the USB OUT stream only* — not the beam | small, unpublished |
+| **JST speaker** | **out** | same source as the jack | small, unpublished |
+| I2S (INT firmware) | both | `DATA1` processed beam → host MCU; `DATA0` far end from host MCU; `DATA2` optional to DAC | 58 ms on the mic side |
+| I2C | both | control (`xvf_host`, `AUDIO_MGR_*`) | n/a |
+
+**The fast path and the useful path are different directions.** The two analogue
+output connectors are fed quickly — but only from the host. The microphone path
+is the slow one, and it has no analogue exit. There is no configuration in which
+a microphone signal leaves this device through the jack.
+
+Both audio paths end to end:
+
+| Path | Route | Total |
+|---|---|---|
+| Capture | mic → pipeline → USB IN → host | **58 ms** + USB |
+| Playback | host → USB OUT → I2S → DAC → jack/speaker | USB + a small unpublished DAC delay |
+| Mic to speaker | capture + host loopback + playback | **68 ms at best**, ~58 + a good 10 ms round trip |
+
+Two details behind those numbers. The 58 ms is XMOS's published *minimum* input
+delay, mic in to I2S out — 928 samples at 16 kHz — and USB transport is on top of
+it, not included. The raw microphone channels in the 6-channel firmware are not a
+shortcut past it: XMOS describes that category as "amplified microphone data
+**with system delay**", i.e. time-aligned to the processed output, so they arrive
+delayed too. For offline work that does not matter at all; for anything live it
+does.
+
+The separate 50 ms figure in XMOS's table is the *output* delay and applies only
+"if far end processing on device is implemented". `AUDIO_MGR_FAR_END_DSP_ENABLE`
+defaults to 0, so by default the playback path is a pass-through and that 50 ms
+does not apply — which is why the playback direction is quick.
+
+For completeness on levels, since the point of the jack was to get line level out
+of it: the TLV320AIC3104's headphone drivers are 30 mW into 16 Ω, about
+0.69 Vrms, with separate differential line outputs specified into 10 kΩ. That is
+a perfectly usable consumer line level — −10 dBV nominal is 0.316 Vrms — so had
+it carried the beam it would have been genuinely useful. It carries the far end.
+
 ### The question that decides it
 
 **What is actually driving "minimum delay"?** That requirement was two words in
