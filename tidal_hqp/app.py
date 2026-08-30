@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from tidal_hqp.gpu_routes import router as gpu_router
 from tidal_hqp.hqplayer.client import hqp_status
 from tidal_hqp.hqplayer_routes import router as hqp_router
+from tidal_hqp.playback.queue import start_monitor
 from tidal_hqp.playback.queue_routes import router as queue_router
 from tidal_hqp.playback.routes import router as playback_router
 from tidal_hqp.streaming.proxy import router as stream_router
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
         print(f"[tidal] Restored session for {_ts.session.user.email}")
     else:
         print("[tidal] No saved session — call POST /auth/login to authenticate")
+    start_monitor()
     yield
 
 

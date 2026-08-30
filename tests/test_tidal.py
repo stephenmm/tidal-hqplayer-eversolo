@@ -158,3 +158,107 @@ def test_track_stream_url_logs_quality(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert "HI_RES_LOSSLESS" in out
+
+
+# ── Token persistence ─────────────────────────────────────────────────────────
+
+@pytest.fixture()
+def token_file(tmp_path, monkeypatch):
+    import tidal_hqp.tidal.session as ts
+    f = tmp_path / "token.json"
+    monkeypatch.setattr(ts, "TOKEN_FILE", f)
+    return f
+
+
+def test_save_token_writes_the_oauth_fields(token_file, tidal_session):
+    import datetime as dt
+    import json
+    import tidal_hqp.tidal.session as ts
+
+    tidal_session.token_type = "Bearer"
+    tidal_session.access_token = "acc"
+    tidal_session.refresh_token = "ref"
+    tidal_session.expiry_time = dt.datetime(2030, 1, 1, tzinfo=dt.timezone.utc)
+
+    ts.save_token()
+
+    data = json.loads(token_file.read_text())
+    assert data["token_type"] == "Bearer"
+    assert data["access_token"] == "acc"
+    assert data["refresh_token"] == "ref"
+    assert data["expiry_time"] == tidal_session.expiry_time.timestamp()
+
+
+def test_save_token_handles_a_missing_expiry(token_file, tidal_session):
+    import json
+    import tidal_hqp.tidal.session as ts
+
+    tidal_session.token_type = "Bearer"
+    tidal_session.access_token = "acc"
+    tidal_session.refresh_token = "ref"
+    tidal_session.expiry_time = None
+
+    ts.save_token()
+
+    assert json.loads(token_file.read_text())["expiry_time"] is None
+
+
+def test_load_token_returns_false_without_a_file(token_file):
+    import tidal_hqp.tidal.session as ts
+    assert ts.load_token() is False
+
+
+def test_load_token_returns_false_on_corrupt_json(token_file):
+    import tidal_hqp.tidal.session as ts
+    token_file.write_text("{not json")
+    assert ts.load_token() is False
+
+
+def test_load_token_returns_false_when_a_field_is_missing(token_file):
+    import tidal_hqp.tidal.session as ts
+    token_file.write_text('{"token_type": "Bearer"}')
+    assert ts.load_token() is False
+
+
+def test_load_token_restores_a_valid_session(token_file, tidal_session):
+    import tidal_hqp.tidal.session as ts
+    token_file.write_text(
+        '{"token_type":"Bearer","access_token":"acc","refresh_token":"ref","expiry_time":null}'
+    )
+    tidal_session.load_oauth_session.return_value = True
+    tidal_session.check_login.return_value = True
+
+    assert ts.load_token() is True
+    tidal_session.load_oauth_session.assert_called_once_with("Bearer", "acc", "ref")
+
+
+def test_load_token_returns_false_when_the_token_is_rejected(token_file, tidal_session):
+    import tidal_hqp.tidal.session as ts
+    token_file.write_text(
+        '{"token_type":"Bearer","access_token":"acc","refresh_token":"ref","expiry_time":null}'
+    )
+    tidal_session.load_oauth_session.return_value = False
+
+    assert ts.load_token() is False
+
+
+def test_load_token_returns_false_when_the_session_loads_but_is_not_logged_in(token_file, tidal_session):
+    """A stale refresh token loads fine but fails check_login."""
+    import tidal_hqp.tidal.session as ts
+    token_file.write_text(
+        '{"token_type":"Bearer","access_token":"acc","refresh_token":"ref","expiry_time":null}'
+    )
+    tidal_session.load_oauth_session.return_value = True
+    tidal_session.check_login.return_value = False
+
+    assert ts.load_token() is False
+
+
+def test_load_token_survives_a_raising_session(token_file, tidal_session):
+    import tidal_hqp.tidal.session as ts
+    token_file.write_text(
+        '{"token_type":"Bearer","access_token":"acc","refresh_token":"ref","expiry_time":null}'
+    )
+    tidal_session.load_oauth_session.side_effect = Exception("network down")
+
+    assert ts.load_token() is False

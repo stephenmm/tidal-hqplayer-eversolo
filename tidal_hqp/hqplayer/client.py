@@ -27,9 +27,12 @@ def hqp_send(xml: str, timeout: float = 5.0) -> str:
         raise HTTPException(status_code=502, detail=f"HQPlayer unreachable: {e}")
 
 
-def hqp_play_url(url: str) -> None:
+def hqp_play_url(url: str) -> threading.Thread:
     """Tell HQPlayer to load and play a URL. Runs in a background thread so the
-    server can simultaneously serve the stream that HQPlayer fetches."""
+    server can simultaneously serve the stream that HQPlayer fetches.
+
+    Returns the thread so callers (and tests) can join it.
+    """
     def _send() -> None:
         try:
             t0 = time.time()
@@ -43,7 +46,9 @@ def hqp_play_url(url: str) -> None:
         except Exception as e:
             print(f"[hqp] play error: {e}", flush=True)
 
-    threading.Thread(target=_send, daemon=True).start()
+    t = threading.Thread(target=_send, daemon=True)
+    t.start()
+    return t
 
 
 def hqp_stop() -> None:

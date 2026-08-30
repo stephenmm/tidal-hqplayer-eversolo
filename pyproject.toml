@@ -36,7 +36,8 @@ addopts = "-ra -q --tb=short"
 [tool.coverage.run]
 source  = ["tidal_hqp"]
 omit    = ["tests/*", "server.py"]
+branch  = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under   = 80
+fail_under   = 95

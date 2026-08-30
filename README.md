@@ -43,7 +43,7 @@ tidal_hqp/
   hqplayer_routes.py     — /hqplayer/configure, /hqplayer/settings
 static/
   index.html             — single-file frontend, no build step
-tests/                   — 27 pytest tests, no real credentials needed
+tests/                   — 225 pytest tests, no real credentials needed
 server.py                — 4-line entry point
 ```
 
@@ -133,19 +133,31 @@ The API uses raw TCP sockets (not HTTP). Protocol reverse-engineered from the [h
 ## Running tests
 
 ```bash
-pip install pytest httpx pytest-mock
+pip install -e ".[dev]"
 pytest
 ```
 
-All 27 tests run without real Tidal credentials or a live HQPlayer instance — sockets and sessions are fully mocked.
+All 225 tests run without real Tidal credentials or a live HQPlayer instance — sockets
+and sessions are mocked. A test that opens a real connection to the HQPlayer port
+fails on an autouse guard in `tests/conftest.py`, so the suite cannot quietly start
+talking to a live player again.
 
 ```bash
-# With coverage
+# With coverage (branch coverage on; the run fails below 95%)
 python -m coverage run -m pytest && python -m coverage report
 ```
 
+CI runs both on every push and pull request — see `.github/workflows/tests.yml`.
+
+### Testing notes
+
+- The queue auto-advance monitor is a plain function, `_monitor_tick(prev_state)`,
+  driven directly by the tests. `start_monitor()` launches the polling thread and is
+  called from the app lifespan — importing `tidal_hqp.playback.queue` starts nothing.
+- `hqplayer_routes.py` imports `close_and_wait` and `launch` by name, so tests must
+  patch them on `tidal_hqp.hqplayer_routes`, not on `tidal_hqp.hqplayer.configure`.
+
 ## Known limitations
 
-- Queue/next-track is not implemented — plays one track at a time
 - HQPlayer must be running before the first `/play` call (unless using `/hqplayer/configure` which handles launch)
 - Tidal stream URLs are time-limited; the server fetches a fresh URL per play request

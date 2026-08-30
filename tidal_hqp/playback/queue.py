@@ -170,45 +170,75 @@ def _do_play(index: int) -> None:
 
 # ── Monitor thread ────────────────────────────────────────────────────────────
 
+def _dispatch_play(index: int) -> None:
+    """Play `index` off the monitor thread, so the tick loop keeps running."""
+    threading.Thread(target=_do_play, args=(index,), daemon=True).start()
+
+
+def _monitor_tick(prev_state: int | None) -> int | None:
+    """Run one monitor iteration and return the next `prev_state`.
+
+    Split out of `_monitor_loop` so the auto-advance rules can be driven
+    directly, without a thread or a clock.
+    """
+    try:
+        status = hqp_status()
+    except Exception:
+        return None
+
+    with _queue_lock:
+        loading      = _queue["loading"]
+        user_stopped = _queue["user_stopped"]
+        current      = _queue["current_index"]
+
+    state = int(status.get("state", 0))
+
+    if loading:
+        return state
+
+    if state != prev_state:
+        print(f"[monitor] state {prev_state}→{state}  current={current}  user_stopped={user_stopped}", flush=True)
+
+    if prev_state == 2 and state == 0 and not user_stopped and current is not None:
+        next_idx = _next_index()
+        if next_idx is not None:
+            print(f"[monitor] auto-advance → {next_idx}", flush=True)
+            _dispatch_play(next_idx)
+        else:
+            print("[monitor] end of queue — stopping HQPlayer", flush=True)
+            try:
+                hqp_stop()
+            except Exception:
+                pass
+            with _queue_lock:
+                _queue["user_stopped"] = True
+
+    return state
+
+
 def _monitor_loop() -> None:
     prev_state = None
     while True:
         time.sleep(0.5)
-        try:
-            status = hqp_status()
-        except Exception:
-            prev_state = None
-            continue
-
-        with _queue_lock:
-            loading      = _queue["loading"]
-            user_stopped = _queue["user_stopped"]
-            current      = _queue["current_index"]
-
-        state = int(status.get("state", 0))
-
-        if loading:
-            prev_state = state
-            continue
-
-        if state != prev_state:
-            print(f"[monitor] state {prev_state}→{state}  current={current}  user_stopped={user_stopped}", flush=True)
-
-        if prev_state == 2 and state == 0 and not user_stopped and current is not None:
-            next_idx = _next_index()
-            if next_idx is not None:
-                print(f"[monitor] auto-advance → {next_idx}", flush=True)
-                threading.Thread(target=_do_play, args=(next_idx,), daemon=True).start()
-            else:
-                print("[monitor] end of queue — stopping HQPlayer", flush=True)
-                try:
-                    hqp_stop()
-                except Exception:
-                    pass
-                with _queue_lock:
-                    _queue["user_stopped"] = True
-
-        prev_state = state
+        prev_state = _monitor_tick(prev_state)
 
 
-threading.Thread(target=_monitor_loop, daemon=True, name="queue-monitor").start()
+_monitor_thread: threading.Thread | None = None
+_monitor_start_lock = threading.Lock()
+
+
+def start_monitor() -> threading.Thread:
+    """Start the auto-advance monitor. Called from the app lifespan.
+
+    Deliberately not a module-level side effect: importing this module used to
+    open a TCP connection to HQPlayer every 500 ms for the life of the process,
+    which made the module impossible to import from a test.
+    """
+    global _monitor_thread
+    with _monitor_start_lock:
+        if _monitor_thread is None or not _monitor_thread.is_alive():
+            _monitor_thread = threading.Thread(
+                target=_monitor_loop, daemon=True, name="queue-monitor"
+            )
+            _monitor_thread.start()
+        return _monitor_thread
