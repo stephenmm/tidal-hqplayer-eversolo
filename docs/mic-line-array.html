@@ -191,7 +191,7 @@ diaphragm to XLR pin&#8239;2.</p>
 <div><span class="num">160<sub>ms</sub></span><small>Talker hand-over</small></div>
 <div><span class="num">+4<sub>dBu</sub></span><small>Balanced output</small></div>
 </div>
-</header><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li><li><a href="#cost">Cost and time</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
+</header><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li><li><a href="#cost">Cost and time</a></li><li><a href="#poc">Proof of concept</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
 <p>Three requirements, each of which turns out to force an architectural decision
 rather than a parameter choice.</p>
 <h3>&#8220;Finds the primary talker&#8221;</h3>
@@ -298,12 +298,27 @@ the main lobe a constant width across coverage. At a spacing of 0.06 that is
 <strong>34 beams</strong> over &#177;75&#176;, and a talker anywhere in coverage is within
 1.2&#8239;dB of a beam centre. Widening to 21 beams costs 3.2&#8239;dB; to 14 beams,
 7.7&#8239;dB.</p>
-<p>A 300-trial Monte-Carlo over per-microphone gain (0.5&#8239;dB), phase (2&#176;) and
-position (0.3&#8239;mm) tolerance moves mean DI from 9.54 to 9.53&#8239;dB, with the 5th
-percentile at 9.52&#8239;dB. Essentially nothing &#8212; which is the entire point of
-constraining white-noise gain instead of chasing maximum DI. An unconstrained
-superdirective design on this aperture reaches higher DI on paper and falls apart on
-the bench.</p>
+<h3>Tolerance, measured on the right beam</h3>
+<div class="callout"><span class="eyebrow">A correction to an earlier version of this page</span>
+<p>Position error along the array axis is <strong>invisible at broadside</strong>: a plane
+wave arriving normal to the array reaches every element simultaneously however the
+elements happen to be spaced. A broadside-only Monte-Carlo therefore tests gain and
+phase and silently ignores position, which is not what it appears to be doing. The
+error appears as sin&#952; grows &#8212; 1&#8239;mm of axial displacement is 4.2&#176; of phase
+at 8&#8239;kHz steered to 30&#176;, and 8.1&#176; steered to 75&#176;.</p></div>
+<div class="tbl"><table><thead><tr><th>Beam</th><th>Nominal DI</th><th>Mean DI</th><th>5th-pct DI</th><th>Dev p95</th><th>Dev worst</th></tr></thead><tbody><tr><td>Broadside</td><td>9.54 dB</td><td>9.53 dB</td><td>9.52 dB</td><td>0.99 dB</td><td>1.58 dB</td></tr><tr><td>Steered 75&#176;</td><td>12.07 dB</td><td>12.03 dB</td><td>11.99 dB</td><td>0.55 dB</td><td>1.12 dB</td></tr></tbody></table></div>
+<p>Position sensitivity, measured properly on the 75&#176; beam with gain and phase held
+perfect:</p>
+<div class="tbl"><table><thead><tr><th>Position 1&#963;</th><th>Mean DI</th><th>5th-pct DI</th><th>On-axis dev p95</th></tr></thead><tbody><tr><td>0.3 mm</td><td>12.07 dB</td><td>12.02 dB</td><td>0.11 dB</td></tr><tr><td>0.5 mm</td><td>12.06 dB</td><td>11.99 dB</td><td>0.17 dB</td></tr><tr><td>1.0 mm</td><td>12.04 dB</td><td>11.88 dB</td><td>0.37 dB</td></tr><tr><td>2.0 mm</td><td>11.97 dB</td><td>11.63 dB</td><td>0.90 dB</td></tr><tr><td>4.0 mm</td><td>11.69 dB</td><td>10.93 dB</td><td class="cost">2.53 dB</td></tr></tbody></table></div>
+<p>The conclusion survives the correction and is stronger for being tested: the array is
+remarkably insensitive to position. The &#177;0.3&#8239;mm build tolerance is set by what a
+single PCB gives away free, not by what the beamformer needs &#8212; even &#177;1&#8239;mm
+costs 0.03&#8239;dB. That is the point of constraining white-noise gain rather than chasing
+maximum DI; an unconstrained superdirective design on this aperture reaches higher DI on
+paper and falls apart on the bench.</p>
+<p>Gain and phase are where the sensitivity actually lives, which is the quantitative
+case for calibrating every element:</p>
+<div class="tbl lefty"><table><thead><tr><th>Per-mic error</th><th>Mean DI</th><th>On-axis dev p95</th></tr></thead><tbody><tr><td>0.5 dB / 2&#176; (calibrated)</td><td class="hi">12.03 dB</td><td>0.55 dB</td></tr><tr><td>1 dB / 5&#176; (good capsule, uncalibrated)</td><td>11.88 dB</td><td>1.26 dB</td></tr><tr><td>2 dB / 10&#176; (cheap electret, uncalibrated)</td><td>11.33 dB</td><td>2.68 dB</td></tr><tr><td>3 dB / 15&#176; (worst case)</td><td class="cost">10.51 dB</td><td>4.33 dB</td></tr></tbody></table></div>
 </section><section id="latency"><span class="sec-n">&#167;5</span><h2>Latency</h2>
 <figure><div class="figscroll"><svg viewBox="0 0 860 232" width="860" role="img" aria-label="Latency budget: 1.42 milliseconds total, shown against a 32 millisecond STFT beamformer"><text x="4" y="14" class="axlab">exploded &#8212; 1.42 ms end to end</text><rect x="4.0" y="26" width="10.5" height="34" fill="var(--muted)" opacity="0.3"/><line x1="4.0" y1="62" x2="4.0" y2="88" stroke="var(--rule)" stroke-width="1"/><text x="4.0" y="104" text-anchor="start" class="axlab" fill="var(--ink)">Mic + preamp</text><text x="4.0" y="116" text-anchor="start" class="tick">0.02 ms</text><rect x="16.0" y="26" width="208.5" height="34" fill="var(--muted)" opacity="0.4"/><text x="121.0" y="78" text-anchor="middle" class="axlab" fill="var(--ink)">ADC decimation</text><text x="121.0" y="90" text-anchor="middle" class="tick">0.35 ms</text><rect x="226.0" y="26" width="40.5" height="34" fill="var(--muted)" opacity="0.5"/><line x1="226.0" y1="62" x2="226.0" y2="88" stroke="var(--rule)" stroke-width="1"/><text x="226.0" y="104" text-anchor="start" class="axlab" fill="var(--ink)">Calibration FIR</text><text x="226.0" y="116" text-anchor="start" class="tick">0.07 ms</text><rect x="268.0" y="26" width="418.5" height="34" fill="var(--accent)" opacity="1"/><text x="478.0" y="78" text-anchor="middle" class="axlab" fill="var(--ink)">Beamformer FIR</text><text x="478.0" y="90" text-anchor="middle" class="tick">0.70 ms</text><rect x="688.0" y="26" width="166.5" height="34" fill="var(--muted)" opacity="0.7"/><text x="772.0" y="78" text-anchor="middle" class="axlab" fill="var(--ink)">DAC reconstruction</text><text x="772.0" y="90" text-anchor="middle" class="tick">0.28 ms</text><text x="4" y="164" class="axlab">to scale against the alternative</text><rect x="4" y="174" width="37.8" height="16" fill="var(--accent)"/><text x="50.8" y="186" class="tick" fill="var(--ink)">1.42 ms &#8212; this design</text><rect x="4" y="198" width="852.0" height="16" fill="var(--cost)" opacity=".28"/><text x="13" y="210" class="tick" fill="var(--ink)">32 ms &#8212; a 512-point STFT beamformer, before any filtering</text></svg></div>
 <figcaption>The budget, exploded above and shown to scale below against the STFT
@@ -600,6 +615,75 @@ pair in from &#177;12 to &#177;11 grid units:</p>
 supplier list. &#177;10 costs three times as much for another 43&#8239;mm. This is a design
 change made for a process reason, so make it deliberately and early, not as a late
 fix.</p>
+
+</section><section id="poc"><span class="sec-n">&#167;11</span><h2>Proof of concept</h2>
+<p>The production build is not the right first thing to make. Two of the design&#8217;s
+risks are independent, and each retires far more cheaply alone than together.</p>
+<ul>
+<li><strong>Does the beamformer and tracker behave in a real room?</strong> Needs 15
+sample-synchronous channels at known positions. Needs <em>no</em> low latency at all,
+because it can be validated on recordings, offline.</li>
+<li><strong>Can the chain hit 1.42&#8239;ms?</strong> Needs converter measurements. Needs
+no array.</li>
+</ul>
+<p>Neither needs a custom board. Splitting them is what makes a proof of concept a few
+hundred dollars and a couple of weekends instead of a board spin.</p>
+
+<h3>What cannot go on a breadboard</h3>
+<p>The analogue front end is fine on one &#8212; audio-band signals at low impedance
+forgive contact resistance and a few pF of stray. Two things are not.</p>
+<p><strong>The microphones.</strong> MEMS parts are destroyed by hand soldering. Use
+<strong>electret capsules</strong> instead: through-hole, hand-solderable, a dollar or
+two, and at roughly &#8722;38&#8239;dBV/Pa with 58&#8211;65&#8239;dB SNR they are within a few
+dB of the MEMS the production design assumes. A 6&#8211;10&#8239;mm capsule also fits
+comfortably inside the 21.4&#8239;mm grid pitch.</p>
+<p><strong>The digital side.</strong> MCLK at 24.576&#8239;MHz and TDM over solderless
+jumpers, with no ground plane, is where a breadboard actually fails. Do not breadboard
+the converters &#8212; buy the capture instead. A multichannel USB audio interface samples
+all its channels simultaneously, which is the only property the array requires; its own
+latency is irrelevant when the validation is offline.</p>
+
+<h3>The geometry does not go on the breadboard either</h3>
+<p>Element positions are set by a drilled strip &#8212; aluminium, acrylic, even MDF
+&#8212; with capsules in the holes and flying leads back to protoboard. The breadboard
+carries bias resistors and coupling caps, nothing positional.</p>
+<p>Two measurements make this easier than it sounds. The array is insensitive to
+position: &#177;1&#8239;mm costs 0.03&#8239;dB of directivity, so a drill press and a printed
+template suffice. And more useful still, <strong>error you measure is not error at
+all</strong> &#8212; design the filters for the geometry you actually built rather than the
+one you drew:</p>
+<div class="tbl"><table><thead><tr><th>Position 1&#963;</th><th>Designed for nominal</th><th>Designed for measured</th></tr></thead><tbody><tr><td>0.5 mm</td><td>12.06 dB</td><td class="hi">12.07 dB</td></tr><tr><td>2.0 mm</td><td>11.97 dB</td><td class="hi">12.06 dB</td></tr><tr><td>4.0 mm</td><td>11.69 dB</td><td class="hi">12.03 dB</td></tr></tbody></table></div>
+<p>You have one unit, so per-unit geometry calibration is free. Measure the holes with
+calipers, put the numbers in, and the mechanical tolerance problem disappears. Element
+gain and phase still need calibrating &#8212; that is where the real sensitivity lives,
+worth about 1.5&#8239;dB of directivity.</p>
+
+<h3>Stage one: eight channels</h3>
+<p>Start below the full design. An eight-element uniform array at 42.8&#8239;mm pitch
+needs one eight-channel interface and captures most of the behaviour:</p>
+<div class="tbl"><table><thead><tr><th>Array</th><th>n</th><th>Aperture</th><th>Mean DI</th><th>Room-noise gain</th></tr></thead><tbody><tr><td>Full design</td><td>15</td><td>513.6 mm</td><td>9.54 dB</td><td>+6.10 dBA</td></tr><tr><td>8 uniform, 42.8 mm pitch</td><td>8</td><td>299.6 mm</td><td class="hi">8.04 dB</td><td>+4.69 dBA</td></tr><tr><td>8 nested subset</td><td>8</td><td>342.4 mm</td><td>7.59 dB</td><td>+4.97 dBA</td></tr><tr><td>7-element MF sub-array</td><td>7</td><td>256.8 mm</td><td>7.51 dB</td><td>+4.33 dBA</td></tr><tr><td>8 uniform, 21.4 mm pitch</td><td>8</td><td>149.8 mm</td><td>5.77 dB</td><td>+3.18 dBA</td></tr><tr><td>7-element HF sub-array</td><td>7</td><td>128.4 mm</td><td>5.30 dB</td><td>+2.86 dBA</td></tr></tbody></table></div>
+<p>The eight-element uniform array reaches 8.04&#8239;dB, 84&#8239;% of the full
+array&#8217;s directivity, and is alias-free to 4&#8239;kHz. It proves the beamformer,
+SRP-PHAT and the tracker end to end. What it does not prove is the low-frequency
+superdirectivity, which needs the full 513.6&#8239;mm aperture. Roughly <strong>$350</strong>:
+eight electrets, a drilled strip, passives, and an eight-channel interface with
+microphone preamps.</p>
+
+<h3>Stage two: sixteen channels, then latency</h3>
+<p>Extend the strip to the full fifteen positions and add a second interface,
+clock-linked to the first over ADAT or word clock so the channels stay
+sample-synchronous. Around <strong>$600</strong> all in. This validates the design as
+drawn: measured directivity, beam patterns and tracker behaviour against the predictions
+on this page.</p>
+<p>Latency is a separate, later experiment that does not involve the array at all. Take
+the candidate ADC and DAC evaluation boards, enable the low-latency filter mode, and
+measure the group delay of each. That is the 0.63&#8239;ms flagged as an allocation in the
+latency budget, it is the single largest uncertainty in the headline specification, and
+two evaluation boards retire it.</p>
+<p>What the proof of concept confirms is the acoustics and the algorithms in a real room
+with real reverberation and real talkers &#8212; everything the simulation assumed and
+could not itself check. It says nothing about latency, production self-noise,
+manufacturability or cost; those are retired by different experiments.</p>
 
 <h3>Deliberately out of scope</h3>
 <ul>

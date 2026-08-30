@@ -897,12 +897,24 @@ def run_report(cfg: DesignConfig, quick: bool) -> dict[str, object]:
     trials = 60 if quick else 300
     print(f"\n[4] TOLERANCE MONTE-CARLO, {trials} trials "
           "(gain 0.5 dB, phase 2 deg, position 0.3 mm, 1 sigma)")
-    tol = tolerance_sweep(geo, fir0, cfg, 0.0, Tolerance(), trials, seed=7)
-    print(f"  nominal DI                : {di_avg:.2f} dB")
-    print(f"  mean DI                   : {tol['di_mean_db']:.2f} dB")
-    print(f"  5th-percentile DI         : {tol['di_p05_db']:.2f} dB")
-    print(f"  on-axis deviation, p95    : {tol['on_axis_dev_p95_db']:.2f} dB")
-    print(f"  on-axis deviation, worst  : {tol['on_axis_dev_max_db']:.2f} dB")
+    print("  Evaluated on a STEERED beam as well as at broadside.  Position error along")
+    print("  the array axis is INVISIBLE at broadside - a plane wave arriving normal to")
+    print("  the array reaches every element simultaneously however the elements are")
+    print("  spaced - so a broadside-only sweep silently tests gain and phase alone.")
+    print("  The error appears as sin(theta) grows: 1 mm of axial displacement is 4.2 deg")
+    print("  of phase at 8 kHz steered to 30 deg, and 8.1 deg steered to 75 deg.")
+    fir75 = design_beam(geo, cfg, 75.0)
+    m75 = measure(geo, fir75, cfg, 75.0)
+    di75 = m75.mean_in(m75.di_db, 200.0, 7000.0)
+    print(f"\n  {'':<26}{'DI mean':>9}{'DI p5':>8}{'dev p95':>10}{'dev worst':>11}")
+    tol_all: dict[str, dict[str, float]] = {}
+    for ang, fir_a, nominal in ((0.0, fir0, di_avg), (75.0, fir75, di75)):
+        t = tolerance_sweep(geo, fir_a, cfg, ang, Tolerance(), trials, seed=7)
+        tol_all[f"{ang:.0f}deg"] = t
+        print(f"  steered {ang:>4.0f} deg (nom {nominal:5.2f}){t['di_mean_db']:>9.2f}"
+              f"{t['di_p05_db']:>8.2f}{t['on_axis_dev_p95_db']:>10.2f}"
+              f"{t['on_axis_dev_max_db']:>11.2f}")
+    tol = tol_all["75deg"]
 
     # -- 5 ------------------------------------------------------------------ #
     scfg = SrpConfig()
@@ -1027,7 +1039,7 @@ def run_report(cfg: DesignConfig, quick: bool) -> dict[str, object]:
         "total_latency_lf_ms": total + (gd_lf - gd_hf),
         "steered": steered,
         "beam_crossover_loss_db": grid_loss,
-        "tolerance": tol,
+        "tolerance": tol_all,
         "localisation_median_deg": loc,
         "tracking": track,
         "mmac_per_s": total_mac,

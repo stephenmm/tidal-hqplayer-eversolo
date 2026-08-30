@@ -276,19 +276,51 @@ centre. Storage is 34 × 15 × 192 × 4 B = 382 kB.
 ### 6.6 Tolerance
 
 300-trial Monte-Carlo with per-microphone gain 0.5 dB, phase 2°, position 0.3 mm
-(1σ):
+(1σ), evaluated on a steered beam as well as at broadside:
 
-| | Value |
-|---|---|
-| Nominal DI | 9.54 dB |
-| Mean DI | 9.53 dB |
-| 5th-percentile DI | 9.52 dB |
-| On-axis deviation, p95 | 0.99 dB |
-| On-axis deviation, worst | 1.58 dB |
+| Beam | Nominal DI | Mean DI | 5th-pct DI | Dev. p95 | Dev. worst |
+|---|---|---|---|---|---|
+| Broadside | 9.54 dB | 9.53 dB | 9.52 dB | 0.99 dB | 1.58 dB |
+| Steered 75° | 12.07 dB | 12.03 dB | 11.99 dB | 0.55 dB | 1.12 dB |
 
-Essentially no degradation — which is the whole point of constraining WNG rather
-than chasing maximum DI. An unconstrained superdirective design on this aperture
-reaches higher DI on paper and falls apart on the bench.
+**Both rows are needed, and an earlier version of this document reported only the
+first.** Position error along the array axis is *invisible* at broadside: a plane
+wave arriving normal to the array reaches every element simultaneously however the
+elements happen to be spaced. A broadside-only sweep therefore tests gain and
+phase and silently ignores position, which is not what it appears to be doing.
+The error appears as sin θ grows — 1 mm of axial displacement is 4.2° of phase at
+8 kHz steered to 30°, and 8.1° steered to 75°.
+
+Position sensitivity, measured properly on the 75° beam with gain and phase held
+perfect:
+
+| Position 1σ | Mean DI | 5th-pct DI | On-axis dev. p95 |
+|---|---|---|---|
+| 0.3 mm | 12.07 dB | 12.02 dB | 0.11 dB |
+| 0.5 mm | 12.06 dB | 11.99 dB | 0.17 dB |
+| 1.0 mm | 12.04 dB | 11.88 dB | 0.37 dB |
+| 2.0 mm | 11.97 dB | 11.63 dB | 0.90 dB |
+| 4.0 mm | 11.69 dB | 10.93 dB | 2.53 dB |
+
+The conclusion survives the correction, and is stronger for being tested: the
+array is remarkably insensitive to position. The ±0.3 mm build tolerance in §11.2
+is set by what a single PCB gives away free, not by what the beamformer needs —
+even ±1 mm costs 0.03 dB of directivity. This is the whole point of constraining
+white-noise gain rather than chasing maximum DI. An unconstrained superdirective
+design on this aperture reaches higher DI on paper and falls apart on the bench.
+
+Gain and phase are where the sensitivity actually lives:
+
+| Per-mic error | Mean DI | On-axis dev. p95 |
+|---|---|---|
+| 0.5 dB / 2° (calibrated) | 12.03 dB | 0.55 dB |
+| 1 dB / 5° (good capsule, uncalibrated) | 11.88 dB | 1.26 dB |
+| 2 dB / 10° (cheap electret, uncalibrated) | 11.33 dB | 2.68 dB |
+| 3 dB / 15° (worst case) | 10.51 dB | 4.33 dB |
+
+Which is the quantitative case for §11.7's calibration step: it is worth roughly
+1.5 dB of directivity and 2 dB of response flatness, and no amount of care with
+the mechanical build substitutes for it.
 
 ---
 
@@ -799,7 +831,108 @@ early, not as a late fix.
 
 ---
 
-## 13. Compute budget
+## 13. Proof of concept
+
+The production build in §11 is not the right first thing to make. Two of the
+design's risks are independent, and each can be retired far more cheaply on its
+own than together.
+
+- **Does the beamformer and tracker behave in a real room?** Needs 15 sample-
+  synchronous channels at known positions. Needs *no* low latency at all, because
+  it can be validated on recordings, offline, with the tool in this repository.
+- **Can the chain hit 1.42 ms?** Needs converter measurements. Needs no array.
+
+Neither needs a custom board. Splitting them is what makes a proof of concept a
+few hundred dollars and a couple of weekends instead of a board spin.
+
+### 13.1 What cannot go on a breadboard
+
+The analogue front end is fine on a breadboard — audio-band signals at low
+impedance are forgiving of contact resistance and a few pF of stray. Two things
+are not:
+
+- **The microphones.** MEMS parts are destroyed by hand soldering (§12.4). Use
+  **electret capsules** instead: through-hole, hand-solderable, a dollar or two,
+  and at roughly −38 dBV/Pa with 58–65 dB SNR they are within a few dB of the MEMS
+  the production design assumes. A 6–10 mm capsule also fits comfortably inside
+  the 21.4 mm grid pitch.
+- **The digital side.** MCLK at 24.576 MHz and TDM over solderless jumpers, with
+  no ground plane, is where a breadboard actually fails. Do not breadboard the
+  converters — buy the capture instead. A multichannel USB audio interface
+  samples all its channels simultaneously, which is the only property the array
+  requires; its own latency is irrelevant when the validation is offline.
+
+### 13.2 The geometry does not go on the breadboard either
+
+Element positions are set by a drilled strip — aluminium, acrylic, even MDF —
+with the capsules in the holes and flying leads back to protoboard. The
+breadboard carries the bias resistors and coupling caps, nothing positional.
+
+Two measurements from §6.6 make this much easier than it sounds. First, the array
+is insensitive to position: ±1 mm of placement error costs 0.03 dB of directivity.
+A drill press and a printed template are sufficient; a machine shop is not
+required. Second, and more useful still, **error that you measure is not error at
+all.** Design the filters for the geometry you actually built rather than the one
+you drew, and even ±4 mm recovers to 12.03 dB against a nominal 12.07:
+
+| Position 1σ | Designed for nominal | Designed for measured |
+|---|---|---|
+| 0.5 mm | 12.06 dB | 12.07 dB |
+| 2.0 mm | 11.97 dB | 12.06 dB |
+| 4.0 mm | 11.69 dB | 12.03 dB |
+
+You have one unit, so per-unit geometry calibration is free. Measure the holes
+with calipers, put the numbers in, and the mechanical tolerance problem
+disappears. Microphone gain and phase still need the calibration of §11.7 — that
+is where the real sensitivity lives, worth about 1.5 dB of directivity.
+
+### 13.3 Stage one: eight channels
+
+Start below the full design. An eight-element uniform array at 42.8 mm pitch needs
+one eight-channel interface and captures most of the behaviour:
+
+| Array | n | Aperture | Mean DI | Room-noise gain |
+|---|---|---|---|---|
+| Full design | 15 | 513.6 mm | 9.54 dB | +6.10 dBA |
+| **8 uniform, 42.8 mm pitch** | **8** | **299.6 mm** | **8.04 dB** | **+4.69 dBA** |
+| 8 nested subset | 8 | 342.4 mm | 7.59 dB | +4.97 dBA |
+| 7-element MF sub-array | 7 | 256.8 mm | 7.51 dB | +4.33 dBA |
+| 8 uniform, 21.4 mm pitch | 8 | 149.8 mm | 5.77 dB | +3.18 dBA |
+| 7-element HF sub-array | 7 | 128.4 mm | 5.30 dB | +2.86 dBA |
+
+The eight-element uniform array reaches 8.04 dB, 84 % of the full array's
+directivity, and is alias-free to 4 kHz. It proves the beamformer, SRP-PHAT and
+the tracker end to end. What it does not prove is the low-frequency
+superdirectivity, which is the part that needs the full 513.6 mm aperture.
+
+Roughly $350: eight electrets, a drilled strip, passives, and an eight-channel
+interface with microphone preamps.
+
+### 13.4 Stage two: sixteen channels, then latency
+
+Extend the strip to the full fifteen positions and add a second interface, clock-
+linked to the first over ADAT or word clock so the sixteen channels stay sample-
+synchronous. Around $600 all in. This validates the design as drawn: measured
+directivity against §6.3, beam patterns against §6.4, tracker behaviour against
+§8.2.
+
+Latency is a separate, later experiment and does not involve the array at all.
+Take the candidate ADC and DAC evaluation boards, enable the low-latency filter
+mode, and measure the group delay of each. That is the 0.63 ms of the 1.42 ms
+budget flagged as an allocation in §7, it is the single largest uncertainty in
+the headline specification, and two evaluation boards retire it.
+
+### 13.5 What the proof of concept does and does not tell you
+
+It confirms the acoustics and the algorithms in a real room with real
+reverberation and real talkers — everything the simulation assumed and could not
+itself check. It says nothing about latency, production self-noise,
+manufacturability or cost. Those are §7, §11 and §12, and they are retired by
+different experiments.
+
+---
+
+## 14. Compute budget
 
 | Block | Cost |
 |---|---|
@@ -816,7 +949,7 @@ latency only because of the group-delay taper in §6.2.
 
 ---
 
-## 14. Reproducing these numbers
+## 15. Reproducing these numbers
 
 ```bash
 pip install numpy
@@ -837,7 +970,7 @@ The script is typed and clean under `mypy --strict`.
 
 ---
 
-## 15. Deliberately out of scope
+## 16. Deliberately out of scope
 
 - **Acoustic echo cancellation.** Needed for any duplex conferencing use. A
   time-domain NLMS AEC adds no latency and would sit between the beamformer and
