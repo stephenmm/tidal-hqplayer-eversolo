@@ -448,11 +448,13 @@ of the range can be taken digitally in 32-bit float without cost.
 Implementation:
 
 - **Balanced (XLR):** DAC into a differential line driver (THAT 1646, DRV134 or
-  an OPA1632 discrete equivalent) on ±15 V rails. +18 dBu clip = 6.15 Vrms
-  differential = ±8.7 V peak per leg, comfortable on ±15 V with margin for the
-  driver's own headroom. Output impedance 100 Ω per leg, servo-free DC blocking,
-  and the driver must survive phantom power applied by a mistakenly-configured
-  console — 48 V through 6.8 kΩ into a clamped output.
+  an OPA1632 discrete equivalent) on ±12 V rails. The +18 dBu clip point is
+  6.15 Vrms *differential*, which is 8.70 V peak differential and so ±4.35 V peak
+  per leg — each leg carries half the swing, in antiphase. ±12 V leaves over 7 V
+  of margin per leg; ±15 V is not required for this specification. Output
+  impedance 100 Ω per leg, servo-free DC blocking, and the driver must survive
+  phantom power applied by a mistakenly-configured console — 48 V through 6.8 kΩ
+  into a clamped output.
 - **Unbalanced (RCA):** taken from the same DAC through a separate buffer at
   −16 dB relative to the balanced output, so 0 dBFS = 2.0 Vrms and nominal sits
   at the −10 dBV consumer standard.
@@ -463,36 +465,168 @@ Implementation:
 
 ---
 
-## 11. Hardware realisation
+## 11. Hardware realisation and build
 
-Candidate parts. Every latency-critical figure below must be confirmed against
-the datasheet before commitment — particularly the converter filter modes, which
-are the single largest fixed term in the latency budget.
+Every latency-critical figure below must be confirmed against the datasheet
+before commitment — particularly the converter filter modes, which are the single
+largest fixed term in the latency budget.
 
-| Block | Candidate | Why |
-|---|---|---|
-| Microphone | Analog MEMS, −38 dBV/Pa, ≥65 dB SNR (Knowles SPU0410LR5H class; TDK ICS-40730 for lower noise) | Analogue output keeps the decimation filter — and therefore its group delay — under our control rather than the microphone's |
-| Preamp | Low-noise op-amp, fixed 30 dB | No variable gain: the array depends on channel matching, and a per-channel VGA is a matching liability |
-| ADC | 2 × 8-channel 24-bit TDM (AKM AK5578 class), **low-latency filter mode** | Simultaneous sampling, one shared MCLK, TDM keeps the pin count sane |
-| DAC | 24-bit stereo (PCM5242 class), low-latency mode | |
-| Line driver | THAT 1646 / DRV134, ±15 V | |
-| DSP | ADI ADSP-21569 SHARC+ or XMOS xcore.ai XU316 | 329 MMAC/s with headroom; both have native TDM and enough on-chip RAM for the 382 kB beam bank |
+### 11.1 Bill of materials
 
-**Mechanical and acoustic.** Element position tolerance ±0.3 mm (the Monte-Carlo
-in §6.6 is run at that figure). Sealed acoustic ports with gaskets, mesh over
-each port for dust and pop, and the PCB decoupled from the enclosure so
-structure-borne vibration does not couple in — a vibration path is coherent
-across elements and therefore beamforms *perfectly*, straight into the output.
+| Qty | Block | Candidate | Notes |
+|---|---|---|---|
+| 16 | Microphone | Analog MEMS, −38 dBV/Pa, ≥65 dB SNR (Knowles SPU0410LR5H class; TDK ICS-40730 for lower noise) | 15 in the array, 1 rear-facing. Analogue output keeps the decimation filter — and its group delay — under our control rather than the microphone's |
+| 16 | Preamp | Low-noise op-amp, fixed 30 dB, 0.1 % gain resistors | Quad packages, 4 per device |
+| 4 | ADC | 4-channel 24-bit TDM (PCM1864 / ADAU1978 class), **low-latency filter mode** | Distributed along the strip — see §11.2 |
+| 1 | DSP | ADI ADSP-21569 SHARC+ or XMOS xcore.ai XU316 | 329 MMAC/s with headroom, native TDM, room for the 382 kB beam bank |
+| 1 | DAC | 24-bit stereo (PCM5242 class), low-latency mode | |
+| 1 | Line driver | THAT 1646 / DRV134 | |
+| 1 | NVM | I²C EEPROM, ≥64 kB | Per-unit calibration coefficients |
+| 1 | PCB | 545 × 45 mm, 4-layer FR4, 1.6 mm | |
+| — | Power | 3.3 V analogue LDO, 3.3/1.2 V digital, ±12 V for the driver | See §11.3 |
 
-**Calibration.** Superdirectivity at low frequency is sensitive to gain and phase
-mismatch. Each unit is calibrated at end-of-line against a reference source, and
-a 7-tap correction FIR per microphone is stored in NVM. The 0.07 ms this costs is
-already in the latency budget.
+Indicative BOM cost is roughly $100–150 in mid-hundreds volume, dominated by the
+DSP and the microphone count. Treat that as an order of magnitude, not a quote.
 
-**Clocking.** One MCLK domain for all converters. TDM is a serial bus but the
-sample instants are simultaneous, so there is no inter-channel skew to correct —
-worth stating explicitly because it is a common source of unexplained
-beamformer degradation when it is *not* true.
+### 11.2 Board
+
+**One rigid PCB, not several.** This is the most important build decision, and it
+follows directly from the tolerance budget. Element position tolerance is
+±0.3 mm (the Monte-Carlo in §6.6 is run at that figure). On a single board,
+position is set by fab artwork and pick-and-place — roughly ±0.05 mm each,
+±0.07 mm combined, comfortably inside budget. Split the array across two boards
+joined by a connector or a flex tail and position becomes an *assembly*
+tolerance instead, stacking up mechanical play that lands directly on the
+element the beamformer is most sensitive to. A 545 mm board is awkward to panel
+and more expensive per unit area. Pay it.
+
+**Four ADCs, distributed.** The outermost microphone sits 256.8 mm from centre.
+Routing its analogue output to a centrally-placed converter means a quarter-metre
+single-ended analogue run past a TDM bus — a crosstalk and pickup problem for no
+reason. Four 4-channel ADCs placed near their own microphone groups keep the
+longest analogue run under about 90 mm. They share one TDM bus and one MCLK, so
+this costs pins nowhere and only a little board area.
+
+Layer stack, top to bottom: signal (microphones, preamps, short analogue runs) /
+unbroken ground plane / split power (AVDD, DVDD) / digital, TDM, connectors. The
+ground plane under the analogue section must not be cut. A 6-layer stack buys
+margin on TDM-to-analogue isolation if the 4-layer prototype shows clock
+artefacts in the noise floor.
+
+### 11.3 Power
+
+Microphone PSRR is modest — around −60 dB — so supply ripple lands more or less
+straight in the audio. The analogue rail gets its own low-noise LDO, and the
+switching regulators feeding the digital side stay on the far side of the split.
+
+The line driver rails are the one place the first version of this document
+over-specified. At the +18 dBu clip point the output is 6.15 Vrms
+**differential**, which is 8.70 V peak differential and therefore **±4.35 V peak
+per leg** — each leg carries half the swing, in antiphase. ±12 V rails leave over
+7 V of margin per leg, ample for any driver's own saturation voltage. ±15 V is
+not needed for this specification, which matters: it is the difference between a
+comfortable small isolated DC-DC and a bulkier supply. Whatever generates them,
+post-filter with LC plus an LDO — a DC-DC switching at 100–500 kHz is out of
+band, but its harmonics will intermodulate if let through. Budget ±12 V at
+100 mA, which covers a 600 Ω load (10.3 mA) with the drivers' quiescent current
+and generous margin.
+
+### 11.4 Analogue front end
+
+The microphone's own output noise density is about **60 nV/√Hz** (29 dBA
+self-noise at −38 dBV/Pa is 7.1 µV RMS A-weighted, over roughly 13 kHz of
+A-weighted noise bandwidth). That dominates. A 10 nV/√Hz op-amp adds 0.11 dB to
+the channel noise, a 20 nV/√Hz part 0.43 dB. **The preamp is therefore chosen for
+supply current, DC behaviour and channel matching, not for noise** — which frees
+the choice considerably.
+
+Fixed 30 dB gain, no per-channel VGA: the array depends on channel matching, and
+a variable-gain stage is a matching liability for no benefit here. With 0.1 %
+gain-setting resistors the stage contributes about 0.012 dB of channel-to-channel
+gain error, three orders below what matters.
+
+What *does* matter is the microphone itself. MEMS sensitivity tolerance is ±1 dB
+for a well-specified part and ±3 dB for a cheap one — two to six times the 0.5 dB
+the tolerance Monte-Carlo assumes. **This is why the calibration FIR is not
+optional.** It is not trimming a second-order effect; it is what brings the array
+inside the tolerance its own performance figures were computed at.
+
+### 11.5 Mechanical and acoustic
+
+Bottom-port microphones mounted on the top side over a PCB through-hole, so the
+acoustic reference plane is the board face and the enclosure sees one small port
+per element. Use the microphone vendor's recommended port diameter for a 1.6 mm
+board and confirm the port tube resonance sits above 20 kHz.
+
+Sealed ports with gaskets to the enclosure face, mesh over each for dust and pop,
+and the PCB decoupled from the enclosure on compliant mounts. That last point is
+worth being emphatic about: a structure-borne vibration path is coherent across
+every element, so it **beamforms perfectly** and arrives at the output at full
+array gain. Vibration is the one noise source the array actively makes worse.
+
+### 11.6 Assembly and bring-up
+
+Build it in stages that each end in a measurement, so a fault is localised when
+it appears rather than at the end:
+
+1. **Bare board.** Continuity and isolation on all rails.
+2. **Power only.** Verify every rail's voltage and, on the analogue rail,
+   its ripple — under 10 µV RMS in band, measured, not assumed.
+3. **DSP and clock.** Confirm MCLK frequency and jitter before anything
+   downstream depends on it.
+4. **ADCs, microphones not yet fitted.** The TDM stream should read the
+   converter's own noise floor on all 16 slots. Confirm slot assignment and that
+   all four devices come out of reset synchronously — they share MCLK and LRCLK,
+   so sample instants are simultaneous even though the bus is serial, and there
+   is no inter-channel skew to correct. Verify that rather than assuming it; it
+   is a common source of unexplained beamformer degradation when it is not true.
+5. **Microphones.** Per-channel sensitivity and noise floor against the coupler
+   fixture (§11.7).
+6. **DAC and line driver.** Digital test tone at −14 dBFS should give +4 dBu at
+   the XLR; confirm the clip point and check for asymmetric clipping, which
+   indicates a rail or bias problem.
+7. **Calibration**, then **acceptance test**.
+
+### 11.7 Calibration
+
+**You cannot calibrate this array with a far-field source in a normal room.** The
+Fraunhofer distance for a 513.6 mm aperture is 2D²/λ — 1.54 m at 1 kHz, 6.15 m at
+4 kHz, and **12.30 m at 8 kHz**. A reference loudspeaker at the far end of a
+large anechoic chamber is still in the near field at the top of the band, and
+calibrating against a wavefront you have wrongly assumed to be plane writes that
+error permanently into the correction filters.
+
+So calibrate per element, not per array. Each microphone is measured in a small
+**pressure coupler** — a sealed cavity small compared to a wavelength, in which
+every element sees identical pressure by construction, with no far-field
+requirement at all. A 10 mm cavity has its first mode at 17.1 kHz, comfortably
+above the 8 kHz band edge; 6 mm gives 28.6 kHz if more margin is wanted. Measure
+gain and phase against a reference microphone across the band, fit the 7-tap
+correction FIR, and store it in NVM. The 0.07 ms this costs at runtime is already
+in the latency budget.
+
+Whole-array measurement then becomes an *acceptance test*, not a calibration
+source — and one that only has to be trusted to a couple of dB, which a treated
+room at 2 m can deliver.
+
+### 11.8 Acceptance test
+
+| Test | Limit |
+|---|---|
+| Per-channel sensitivity, post-calibration | within ±0.5 dB of nominal |
+| Per-channel phase, post-calibration, to 8 kHz | within ±2° |
+| Per-channel self-noise | ≤ 32 dBA equivalent SPL |
+| On-axis response, 120 Hz – 8 kHz | flat within ±1 dB |
+| Beam pattern at 0°, ±45°, ±75°, at 1 / 2 / 4 kHz | within 2 dB of prediction |
+| Latency, mic to line out (impulse, above 3 kHz) | ≤ 1.6 ms |
+| Nominal output level | +4 dBu ±0.2 dB |
+| Clip point | ≥ +17.5 dBu |
+| THD+N at +4 dBu | ≤ 0.01 % |
+| Phantom power survival, 48 V for 60 s | no damage, returns to spec |
+
+The first three limits are the ones that matter for array performance: they are
+the tolerance figures §6.6's Monte-Carlo was run at, and a unit outside them is a
+unit whose measured directivity no longer matches this document.
 
 ---
 

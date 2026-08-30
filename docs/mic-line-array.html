@@ -135,6 +135,12 @@ tbody tr:hover td{background:var(--accent-soft)}
 td:first-child{color:var(--ink)}
 td.hi{color:var(--accent);font-weight:600}
 td.cost{color:var(--cost);font-weight:600}
+/* tables of text rather than figures: nothing to line up on the right */
+.tbl.lefty th,.tbl.lefty td{text-align:left}
+/* tables whose final column carries prose, not a figure */
+.tbl.notes th:last-child,.tbl.notes td:last-child{text-align:left;
+  font-family:var(--display);font-weight:500;color:var(--muted);
+  font-size:.74rem;line-height:1.45;padding-left:1.4rem}
 tfoot td{border-bottom:none;border-top:1px solid var(--ink);
   color:var(--ink);font-weight:600;padding-top:.5rem}
 
@@ -300,7 +306,7 @@ the bench.</p>
 <figcaption>The budget, exploded above and shown to scale below against the STFT
 beamformer the same job is usually built with. Stages contributing zero &#8212; beam
 cross-fade, AGC, line driver &#8212; are omitted.</figcaption></figure>
-<div class="tbl"><table><thead><tr><th>Stage</th><th>Delay</th><th>Notes</th></tr></thead><tbody><tr><td>Mic + preamp + anti-alias</td><td>0.02 ms</td><td>analogue, 1st order at 40 kHz</td></tr><tr><td>ADC decimation filter</td><td class="cost">0.35 ms</td><td>budget allocation &#8212; verify</td></tr><tr><td>Calibration FIR, 7 tap</td><td>0.07 ms</td><td>per-mic gain/phase trim</td></tr><tr><td>Beamformer FIR, above 3 kHz</td><td class="hi">0.70 ms</td><td>measured from the FIR bank</td></tr><tr><td>Beam cross-fade</td><td>0.00 ms</td><td>two beams run in parallel</td></tr><tr><td>AGC / limiter</td><td>0.00 ms</td><td>zero look-ahead, soft knee</td></tr><tr><td>DAC reconstruction filter</td><td class="cost">0.28 ms</td><td>budget allocation &#8212; verify</td></tr><tr><td>Balanced line driver</td><td>0.00 ms</td><td>analogue</td></tr></tbody><tfoot><tr><td>Total, above 3 kHz</td><td>1.42 ms</td><td>2.21 ms below 250 Hz</td></tr></tfoot></table></div>
+<div class="tbl notes"><table><thead><tr><th>Stage</th><th>Delay</th><th>Notes</th></tr></thead><tbody><tr><td>Mic + preamp + anti-alias</td><td>0.02 ms</td><td>analogue, 1st order at 40 kHz</td></tr><tr><td>ADC decimation filter</td><td class="cost">0.35 ms</td><td>budget allocation &#8212; verify</td></tr><tr><td>Calibration FIR, 7 tap</td><td>0.07 ms</td><td>per-mic gain/phase trim</td></tr><tr><td>Beamformer FIR, above 3 kHz</td><td class="hi">0.70 ms</td><td>measured from the FIR bank</td></tr><tr><td>Beam cross-fade</td><td>0.00 ms</td><td>two beams run in parallel</td></tr><tr><td>AGC / limiter</td><td>0.00 ms</td><td>zero look-ahead, soft knee</td></tr><tr><td>DAC reconstruction filter</td><td class="cost">0.28 ms</td><td>budget allocation &#8212; verify</td></tr><tr><td>Balanced line driver</td><td>0.00 ms</td><td>analogue</td></tr></tbody><tfoot><tr><td>Total, above 3 kHz</td><td>1.42 ms</td><td>2.21 ms below 250 Hz</td></tr></tfoot></table></div>
 
 <h3>Why the group delay is not constant</h3>
 <p>The single most important latency decision. The target delay tapers from
@@ -404,10 +410,12 @@ range is taken digitally in 32-bit float at no cost.</p>
 <h3>Digital to line</h3>
 <div class="tbl"><table><thead><tr><th>Point</th><th>Value</th></tr></thead><tbody><tr><td>AGC target</td><td>&#8722;20 dBFS</td></tr><tr><td>DAC 0 dBFS</td><td>+18 dBu balanced &#183; 6.15 Vrms</td></tr><tr><td>Nominal output</td><td>+4 dBu &#183; 1.228 Vrms, at &#8722;14 dBFS</td></tr><tr><td>Headroom above nominal</td><td class="hi">14 dB</td></tr><tr><td>Unbalanced output</td><td>&#8722;10 dBV &#183; 0.316 Vrms; 0 dBFS = 2.0 Vrms</td></tr></tbody></table></div>
 <p><strong>Balanced (XLR).</strong> DAC into a differential line driver &#8212; THAT&#8239;1646,
-DRV134 or an OPA1632 discrete equivalent &#8212; on &#177;15&#8239;V rails. The +18&#8239;dBu clip
-point is 6.15&#8239;Vrms differential, or &#177;8.7&#8239;V peak per leg, comfortable on
-&#177;15&#8239;V with margin for the driver&#8217;s own headroom. 100&#8239;&#937; per leg, and the
-output must survive phantom power applied by a mistakenly-configured console.</p>
+DRV134 or an OPA1632 discrete equivalent &#8212; on <strong>&#177;12&#8239;V</strong> rails. The
++18&#8239;dBu clip point is 6.15&#8239;Vrms <em>differential</em>, which is 8.70&#8239;V peak
+differential and so <strong>&#177;4.35&#8239;V peak per leg</strong> &#8212; each leg carries half
+the swing, in antiphase. &#177;12&#8239;V leaves over 7&#8239;V of margin per leg, and
+&#177;15&#8239;V is not required for this specification. 100&#8239;&#937; per leg, and the output
+must survive phantom power applied by a mistakenly-configured console.</p>
 <p><strong>Unbalanced (RCA).</strong> Same DAC through a separate buffer at &#8722;16&#8239;dB, so
 0&#8239;dBFS is 2.0&#8239;Vrms and nominal sits at the &#8722;10&#8239;dBV consumer standard.</p>
 <p><strong>AGC.</strong> 20&#8239;dB of range, 10&#8239;ms attack, 300&#8239;ms release, holding the
@@ -415,27 +423,116 @@ beam output at &#8722;20&#8239;dBFS &#8212; deliberately slow enough not to pump
 frozen entirely when the tracker reports no speech so it does not spend the pause
 winding up the room noise.</p>
 </section><section id="build"><span class="sec-n">&#167;9</span><h2>Building it</h2>
-<p>Candidate parts. Every latency-critical figure must be confirmed against the
-datasheet before commitment &#8212; particularly the converter filter modes, which are the
-largest fixed term in the budget.</p>
-<div class="tbl"><table><thead><tr><th>Block</th><th>Candidate</th><th>Why</th></tr></thead><tbody><tr><td>Microphone</td><td>Analog MEMS, &#8722;38 dBV/Pa, &#8805;65 dB SNR</td><td>analogue output keeps the decimation filter, and its delay, under our control</td></tr><tr><td>Preamp</td><td>Low-noise op-amp, fixed 30 dB</td><td>no per-channel VGA &#8212; it would be a channel-matching liability</td></tr><tr><td>ADC</td><td>2 &#215; 8-ch 24-bit TDM, low-latency mode</td><td>simultaneous sampling, one shared MCLK</td></tr><tr><td>DAC</td><td>24-bit stereo, low-latency mode</td><td>&#8212;</td></tr><tr><td>Line driver</td><td>THAT 1646 / DRV134, &#177;15 V</td><td>&#8212;</td></tr><tr><td>DSP</td><td>SHARC+ or xcore.ai class</td><td>329 MMAC/s with headroom, native TDM, room for the 382 kB beam bank</td></tr></tbody></table></div>
-<div class="tbl"><table><thead><tr><th>Compute block</th><th>Cost</th></tr></thead><tbody><tr><td>Beamformer, 2 beams cross-fading (15 &#215; 192 &#215; 48 kHz &#215; 2)</td><td>276.5 MMAC/s</td></tr><tr><td>Per-mic calibration FIR (15 &#215; 7 &#215; 48 kHz)</td><td>5.0 MMAC/s</td></tr><tr><td>SRP-PHAT (105 pairs &#215; 65 beams, 62.5 fps)</td><td>47.8 MMAC/s</td></tr></tbody><tfoot><tr><td>Total</td><td>329.3 MMAC/s &#183; 382 kB coefficients</td></tr></tfoot></table></div>
+<p>Every latency-critical figure must be confirmed against the datasheet before
+commitment &#8212; particularly the converter filter modes, which are the largest fixed
+term in the budget.</p>
+<h3>Bill of materials</h3>
+<div class="tbl notes lefty"><table><thead><tr><th>Qty</th><th>Block</th><th>Candidate</th><th>Notes</th></tr></thead><tbody><tr><td>16</td><td>Microphone</td><td>Analog MEMS, &#8722;38 dBV/Pa, &#8805;65 dB SNR</td><td>15 in the array, 1 rear-facing; analogue output keeps the decimation filter, and its delay, ours</td></tr><tr><td>16</td><td>Preamp</td><td>Low-noise op-amp, fixed 30 dB, 0.1&#8239;% resistors</td><td>quad packages</td></tr><tr><td>4</td><td>ADC</td><td>4-ch 24-bit TDM, low-latency mode</td><td>distributed along the strip</td></tr><tr><td>1</td><td>DSP</td><td>SHARC+ or xcore.ai class</td><td>329 MMAC/s with headroom, native TDM, 382 kB beam bank</td></tr><tr><td>1</td><td>DAC</td><td>24-bit stereo, low-latency mode</td><td>&#8212;</td></tr><tr><td>1</td><td>Line driver</td><td>THAT 1646 / DRV134</td><td>&#177;12 V rails</td></tr><tr><td>1</td><td>NVM</td><td>I&#178;C EEPROM, &#8805;64 kB</td><td>per-unit calibration coefficients</td></tr><tr><td>1</td><td>PCB</td><td>545 &#215; 45 mm, 4-layer FR4, 1.6 mm</td><td>one board &#8212; see below</td></tr></tbody></table></div>
+<p>Indicative BOM cost is roughly $100&#8211;150 in mid-hundreds volume, dominated by the
+DSP and the microphone count. An order of magnitude, not a quote.</p>
+
+<h3>Compute budget</h3>
+<div class="tbl"><table><thead><tr><th>Block</th><th>Cost</th></tr></thead><tbody><tr><td>Beamformer, 2 beams cross-fading (15 &#215; 192 &#215; 48 kHz &#215; 2)</td><td>276.5 MMAC/s</td></tr><tr><td>Per-mic calibration FIR (15 &#215; 7 &#215; 48 kHz)</td><td>5.0 MMAC/s</td></tr><tr><td>SRP-PHAT (105 pairs &#215; 65 beams, 62.5 fps)</td><td>47.8 MMAC/s</td></tr></tbody><tfoot><tr><td>Total</td><td>329.3 MMAC/s &#183; 382 kB coefficients</td></tr></tfoot></table></div>
 <p>The beamformer dominates, and it is dominated in turn by the 192-tap length &#8212;
-which is set by the 4&#8239;ms filter span needed to shape a beam at 200&#8239;Hz. That is
-the real cost of low-frequency directivity, and it is paid in MACs rather than in
-latency only because of the group-delay taper.</p>
-<h3>Mechanical, acoustic, calibration</h3>
-<p>Element position tolerance is &#177;0.3&#8239;mm, which is the figure the Monte-Carlo is
-run at. Sealed acoustic ports with gaskets, mesh over each port for dust and pop, and
-the PCB decoupled from the enclosure &#8212; a structure-borne vibration path is coherent
-across elements and therefore beamforms <em>perfectly</em>, straight into the output.</p>
-<p>Superdirectivity at low frequency is sensitive to gain and phase mismatch, so each
-unit is calibrated at end-of-line against a reference source and a 7-tap correction FIR
-per microphone is stored in NVM. The 0.07&#8239;ms it costs is already in the budget. All
-converters share one MCLK domain; TDM is a serial bus but the sample instants are
-simultaneous, so there is no inter-channel skew to correct &#8212; worth stating explicitly
-because it is a common source of unexplained beamformer degradation when it is
-<em>not</em> true.</p>
+set by the 4&#8239;ms filter span needed to shape a beam at 200&#8239;Hz. That is the real
+cost of low-frequency directivity, and it is paid in MACs rather than in latency only
+because of the group-delay taper.</p>
+
+<h3>One rigid board, four distributed converters</h3>
+<p>The most important build decision, and it follows straight from the tolerance
+budget. Element position tolerance is &#177;0.3&#8239;mm. On a single board, position is
+set by fab artwork and pick-and-place &#8212; roughly &#177;0.05&#8239;mm each,
+&#177;0.07&#8239;mm combined, comfortably inside budget. Split the array across two boards
+joined by a connector or flex tail and position becomes an <em>assembly</em> tolerance
+instead, stacking up mechanical play that lands directly on the parameter the
+beamformer is most sensitive to. A 545&#8239;mm board is awkward to panel and costs more
+per unit area. Pay it.</p>
+<p>The outermost microphone sits 256.8&#8239;mm from centre, so routing it to a centrally
+placed converter would mean a quarter-metre single-ended analogue run past a TDM bus.
+Four 4-channel ADCs placed near their own microphone groups keep the longest analogue
+run under about 90&#8239;mm; they share one TDM bus and one MCLK, so it costs pins
+nowhere. Stack, top to bottom: signal / unbroken ground / split power / digital and
+TDM. The ground plane under the analogue section must not be cut.</p>
+
+<h3>What actually sets the noise, and what sets the matching</h3>
+<p>The microphone&#8217;s own output noise density is about <strong>60&#8239;nV/&#8730;Hz</strong>
+&#8212; 29&#8239;dBA of self-noise at &#8722;38&#8239;dBV/Pa is 7.1&#8239;&#181;V&#8239;RMS A-weighted
+over roughly 13&#8239;kHz of noise bandwidth. That dominates completely: a
+10&#8239;nV/&#8730;Hz op-amp adds 0.11&#8239;dB to the channel, a 20&#8239;nV/&#8730;Hz part
+0.43&#8239;dB. <strong>The preamp is chosen for supply current, DC behaviour and channel
+matching, not for noise</strong>, which frees the choice considerably. With 0.1&#8239;%
+gain resistors the stage contributes about 0.012&#8239;dB of channel-to-channel gain
+error.</p>
+<div class="callout"><span class="eyebrow">Why the calibration FIR is not optional</span>
+<p>MEMS sensitivity tolerance is &#177;1&#8239;dB for a well-specified part and
+&#177;3&#8239;dB for a cheap one &#8212; two to six times the 0.5&#8239;dB the tolerance
+Monte-Carlo assumes. Calibration is not trimming a second-order effect; it is what
+brings the array inside the tolerance its own performance figures were computed
+at.</p></div>
+
+<h3>Power</h3>
+<p>Microphone PSRR is around &#8722;60&#8239;dB, so supply ripple lands more or less straight
+in the audio: the analogue rail gets its own low-noise LDO, and the switchers stay on
+the far side of the split. Budget &#177;12&#8239;V at 100&#8239;mA for the line driver &#8212;
+enough for a 600&#8239;&#937; load at 10.3&#8239;mA plus quiescent current and margin &#8212;
+and post-filter it with LC plus an LDO, because a DC-DC switching at
+100&#8211;500&#8239;kHz is out of band but its harmonics will intermodulate if let
+through.</p>
+
+<h3>Mechanical</h3>
+<p>Bottom-port microphones on the top side over a PCB through-hole, so the acoustic
+reference plane is the board face. Use the vendor&#8217;s recommended port diameter for a
+1.6&#8239;mm board and confirm the port tube resonance sits above 20&#8239;kHz. Sealed
+ports with gaskets, mesh for dust and pop, and the PCB decoupled from the enclosure on
+compliant mounts &#8212; a structure-borne vibration path is coherent across every
+element, so it <em>beamforms perfectly</em> and arrives at full array gain. Vibration
+is the one noise source the array actively makes worse.</p>
+
+<h3>Bring-up order</h3>
+<p>Each stage ends in a measurement, so a fault is localised when it appears rather
+than at the end.</p>
+<ul>
+<li><strong>Bare board</strong> &#8212; continuity and isolation on all rails.</li>
+<li><strong>Power only</strong> &#8212; every rail&#8217;s voltage, and the analogue
+rail&#8217;s ripple under 10&#8239;&#181;V&#8239;RMS in band, measured rather than assumed.</li>
+<li><strong>DSP and clock</strong> &#8212; MCLK frequency and jitter, before anything
+downstream depends on them.</li>
+<li><strong>ADCs, microphones not yet fitted</strong> &#8212; all 16 TDM slots should read
+the converter noise floor. Confirm the four devices leave reset synchronously: they
+share MCLK and LRCLK, so sample instants are simultaneous even though the bus is
+serial. Verify that rather than assuming it &#8212; it is a common source of unexplained
+beamformer degradation when it is not true.</li>
+<li><strong>Microphones</strong> &#8212; per-channel sensitivity and noise floor in the
+coupler fixture.</li>
+<li><strong>DAC and line driver</strong> &#8212; a &#8722;14&#8239;dBFS test tone should give
++4&#8239;dBu at the XLR; check the clip point, and check for asymmetric clipping, which
+points at a rail or bias problem.</li>
+<li><strong>Calibrate</strong>, then <strong>acceptance test</strong>.</li>
+</ul>
+
+<h3>Calibration &#8212; and a trap</h3>
+<div class="callout"><span class="eyebrow">You cannot calibrate this array far-field in a room</span>
+<p>The Fraunhofer distance for a 513.6&#8239;mm aperture is 2D&#178;/&#955;: 1.54&#8239;m at
+1&#8239;kHz, 6.15&#8239;m at 4&#8239;kHz, and <strong>12.30&#8239;m at 8&#8239;kHz</strong>. A
+reference loudspeaker at the far end of a large anechoic chamber is still in the near
+field at the top of the band, and calibrating against a wavefront you have wrongly
+assumed to be plane writes that error permanently into the correction filters.</p></div>
+<p>So calibrate per element, not per array. Each microphone is measured in a small
+<strong>pressure coupler</strong> &#8212; a sealed cavity small compared to a wavelength, in
+which every element sees identical pressure by construction, with no far-field
+requirement at all. A 10&#8239;mm cavity puts its first mode at 17.1&#8239;kHz, comfortably
+above the band edge; 6&#8239;mm gives 28.6&#8239;kHz. Measure gain and phase against a
+reference microphone, fit the 7-tap correction FIR, store it in NVM. Whole-array
+measurement then becomes an <em>acceptance test</em> rather than a calibration source
+&#8212; and one that only has to be trusted to a couple of dB, which a treated room at
+2&#8239;m can deliver.</p>
+
+<h3>Acceptance test</h3>
+<div class="tbl"><table><thead><tr><th>Test</th><th>Limit</th></tr></thead><tbody><tr><td>Per-channel sensitivity, post-calibration</td><td class="hi">&#177;0.5 dB</td></tr><tr><td>Per-channel phase, post-calibration, to 8 kHz</td><td class="hi">&#177;2&#176;</td></tr><tr><td>Per-channel self-noise</td><td class="hi">&#8804; 32 dBA equiv. SPL</td></tr><tr><td>On-axis response, 120 Hz &#8211; 8 kHz</td><td>flat within &#177;1 dB</td></tr><tr><td>Beam pattern at 0&#176;, &#177;45&#176;, &#177;75&#176; (1/2/4 kHz)</td><td>within 2 dB of prediction</td></tr><tr><td>Latency, mic to line out, above 3 kHz</td><td>&#8804; 1.6 ms</td></tr><tr><td>Nominal output level</td><td>+4 dBu &#177;0.2 dB</td></tr><tr><td>Clip point</td><td>&#8805; +17.5 dBu</td></tr><tr><td>THD+N at +4 dBu</td><td>&#8804; 0.01 %</td></tr><tr><td>Phantom power survival, 48 V for 60 s</td><td>no damage, returns to spec</td></tr></tbody></table></div>
+<p>The first three are the ones that matter for array performance: they are the
+tolerance figures the Monte-Carlo was run at, and a unit outside them is a unit whose
+measured directivity no longer matches this design.</p>
+
 <h3>Deliberately out of scope</h3>
 <ul>
 <li><strong>Acoustic echo cancellation</strong>, needed for duplex conferencing. A
@@ -447,9 +544,9 @@ construction; explicit dereverberation adds latency and is rarely worth it at th
 &#8212; 138 MMAC/s per additional talker feed &#8212; but &#8220;the primary talker&#8221; was
 specified as singular.</li>
 </ul>
-<footer>Every figure on this page is produced by <code>tools/mic_line_array_design.py</code>,
-a self-contained numpy script that designs the beamformer and then measures it. Run it
-to regenerate them.</footer>
+<footer>Every performance figure on this page is produced by
+<code>tools/mic_line_array_design.py</code>, a self-contained numpy script that designs
+the beamformer and then measures it. Run it to regenerate them.</footer>
 </section></main></div></div><script>
 (function(){
   var seg=document.querySelector('.seg');
