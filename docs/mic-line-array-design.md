@@ -485,8 +485,10 @@ largest fixed term in the latency budget.
 | 1 | PCB | 545 × 45 mm, 4-layer FR4, 1.6 mm | |
 | — | Power | 3.3 V analogue LDO, 3.3/1.2 V digital, ±12 V for the driver | See §11.3 |
 
-Indicative BOM cost is roughly $100–150 in mid-hundreds volume, dominated by the
-DSP and the microphone count. Treat that as an order of magnitude, not a quote.
+Costed in full in §12. The short version: about **$133 factory cost at 1000
+units**, $198 at 100. An earlier draft of this document put it at $100–150 in
+mid-hundreds volume, which was optimistic — it counted the electronics and
+overlooked the PCB and enclosure, which together are the single largest group.
 
 ### 11.2 Board
 
@@ -630,7 +632,174 @@ unit whose measured directivity no longer matches this document.
 
 ---
 
-## 12. Compute budget
+## 12. Cost and build time
+
+Every price here is an indicative order-of-magnitude distributor figure, not a
+quote. They are good enough to decide whether the product is viable and to see
+which lines dominate; they are not good enough to commit money against. Re-quote
+before you do.
+
+### 12.1 Costed bill of materials
+
+Unit prices at three volumes; the extended column is at 1000.
+
+| Group | Item | Qty | @1 | @100 | @1000 | Ext. @1000 |
+|---|---|---|---|---|---|---|
+| Acoustic | Analog MEMS microphone, bottom port | 16 | 2.60 | 1.85 | 1.25 | **20.00** |
+|  | Port gasket + mesh | 16 | 0.18 | 0.09 | 0.05 | **0.80** |
+| Preamp | Quad low-noise op-amp | 4 | 2.40 | 1.65 | 1.20 | **4.80** |
+|  | Gain resistors, 0.1% 0402 | 32 | 0.09 | 0.03 | 0.02 | **0.51** |
+|  | Signal-path caps, C0G/film | 32 | 0.14 | 0.07 | 0.04 | **1.44** |
+|  | Bias + decoupling passives | 56 | 0.03 | 0.01 | 0.01 | **0.34** |
+| Convert | 4-channel 24-bit TDM ADC | 4 | 6.20 | 4.60 | 3.60 | **14.40** |
+|  | ADC support passives + AA filters | 88 | 0.03 | 0.01 | 0.01 | **0.53** |
+|  | Low-jitter 24.576 MHz oscillator | 1 | 3.40 | 2.30 | 1.70 | **1.70** |
+|  | Stereo 24-bit DAC | 1 | 5.60 | 4.10 | 3.20 | **3.20** |
+| DSP | SHARC+ / xcore.ai class DSP | 1 | 28.00 | 20.00 | 14.50 | **14.50** |
+|  | QSPI boot flash, 16 Mb | 1 | 1.10 | 0.72 | 0.52 | **0.52** |
+|  | I2C EEPROM 64 kB (calibration) | 1 | 0.60 | 0.40 | 0.28 | **0.28** |
+|  | DSP support passives | 64 | 0.03 | 0.01 | 0.01 | **0.38** |
+| Output | Balanced line driver | 1 | 4.80 | 3.40 | 2.60 | **2.60** |
+|  | DC-block film caps + output network | 16 | 0.22 | 0.12 | 0.08 | **1.28** |
+|  | Phantom protection (TVS, series R, clamps) | 12 | 0.11 | 0.05 | 0.03 | **0.36** |
+| Power | Isolated +/-12 V DC-DC, 2 W | 1 | 11.00 | 8.20 | 6.30 | **6.30** |
+|  | Low-noise analogue LDO | 4 | 1.00 | 0.68 | 0.48 | **1.92** |
+|  | Digital buck converter | 1 | 1.80 | 1.20 | 0.85 | **0.85** |
+|  | Digital LDO | 1 | 0.45 | 0.28 | 0.19 | **0.19** |
+|  | Bulk caps, inductors, ferrites | 62 | 0.06 | 0.03 | 0.02 | **1.12** |
+| Connector | XLR male panel connector | 1 | 3.60 | 2.60 | 1.95 | **1.95** |
+|  | RCA jack | 1 | 0.90 | 0.58 | 0.40 | **0.40** |
+|  | DC input jack | 1 | 1.10 | 0.70 | 0.48 | **0.48** |
+|  | Debug / programming header | 1 | 0.55 | 0.30 | 0.20 | **0.20** |
+| PCB | 545 x 45 mm 4-layer ENIG (245 cm^2) | 1 | 62.00 | 19.00 | 11.50 | **11.50** |
+| Mech | Extruded alu enclosure, machined ports | 1 | 78.00 | 41.00 | 26.00 | **26.00** |
+|  | End caps, mounts, fasteners, damping | 1 | 14.00 | 7.50 | 4.80 | **4.80** |
+
+| Group | @1 | @100 | @1000 |
+|---|---|---|---|
+| Acoustic | 44.48 | 31.04 | 20.80 |
+| Preamp | 18.64 | 10.47 | 7.09 |
+| Converters | 36.44 | 25.86 | 19.83 |
+| DSP | 31.62 | 21.89 | 15.68 |
+| Output | 9.64 | 5.92 | 4.24 |
+| Power | 20.97 | 14.26 | 10.38 |
+| Connectors | 6.15 | 4.18 | 3.03 |
+| PCB | 62.00 | 19.00 | 11.50 |
+| Mechanical | 92.00 | 48.50 | 30.80 |
+| **BOM total** | **321.94** | **181.12** | **123.35** |
+
+422 parts, of which roughly 400 are placements.
+
+### 12.2 Factory cost
+
+| | @1 | @100 | @1000 |
+|---|---|---|---|
+| BOM | 321.94 | 181.12 | 123.35 |
+| Assembly | — | 9.50 | 5.80 |
+| Test and calibration | — | 7.00 | 4.20 |
+| **Factory cost** | **321.94** | **197.62** | **133.35** |
+
+Three observations worth acting on:
+
+- **Mechanical and PCB are the largest group, not the electronics.** At 1000 they
+  are $42 of $123 — a third of the BOM — and both are driven by one number, the
+  513.6 mm aperture. Any conversation about cost reduction starts there, and
+  §12.5 shows what shortening actually buys and costs.
+- **The DSP is the largest single line** at $14.50, but it needs no external RAM:
+  the 382 kB beam bank fits in on-chip SRAM on both candidate parts. An
+  architecture that spilled to external DDR would add the memory, the routing, and
+  a layer or two to the stack.
+- **The isolated ±12 V supply is $6.30 for one function.** It exists only to feed
+  the balanced driver. If the product can ship unbalanced-only, or accept a lower
+  clip point from a single rail with a virtual ground, that line and its
+  post-filtering go away.
+
+### 12.3 Engineering effort
+
+| Discipline | Person-weeks |
+|---|---|
+| Electrical — schematic, layout, bring-up | 8.0 |
+| Mechanical — enclosure, ports, mounts | 4.5 |
+| DSP and firmware | 13.5 |
+| Test — calibration rig, validation, automation | 10.5 |
+| DFM review, documentation, release | 2.0 |
+| **Total** | **38.5 person-weeks ≈ 8.9 person-months** |
+
+Elapsed time is longer than effort divided by headcount, because validation cannot
+start before boards exist. With a three-person team (1 EE, 1.5 DSP/FW, 0.5 ME) and
+one board spin:
+
+| Weeks | Phase |
+|---|---|
+| 1–5 | Schematic and layout; mechanical in parallel; DSP plumbing on an eval board |
+| 6–8 | Fab and assembly turn |
+| 9–13 | Bring-up, DSP integration, calibration fixture build |
+| 14–17 | Board spin and second turn |
+| 18–24 | Acoustic validation, calibration flow, acceptance automation, DFM and docs |
+
+**Roughly 5 to 6 months to a validated first article.**
+
+One caveat in the estimate's favour: the beamformer design is already done. Filter
+synthesis, the parameter selection in §6.1, and the verification in §6.3–6.6 are
+all in the tool. That is normally the highest-risk item on a schedule like this,
+because "tune the array until it sounds right" is an unbounded loop. Starting
+without it, add 8–10 person-weeks and considerably more schedule risk than that
+suggests.
+
+### 12.4 Per-unit build time
+
+| Step | Time |
+|---|---|
+| Placement, ~400 parts | 1–2 min machine |
+| Reflow and AOI | inline |
+| Connector and enclosure assembly, gaskets, mesh | 8–11 min |
+| Calibration, 16-cavity coupler, simultaneous sweep | 40–60 s |
+| Acceptance test, automated | 90–120 s |
+| Pack | 1–2 min |
+| **Touch labour** | **12–16 min/unit** |
+
+A hundred units is therefore roughly 22–27 hours of labour. The calibration step
+assumes a fixture that seals all sixteen ports at once against a common plenum and
+measures every channel in one sweep; done sequentially with a single coupler it is
+five minutes a unit instead of one, and becomes the bottleneck.
+
+**You cannot hand-build a prototype.** MEMS microphones are damaged by hand
+soldering, cannot be ultrasonically cleaned, and need controlled reflow and MSL
+handling. Even a one-off needs a stencil and a proper profile. Allow 4–6 weeks
+from ordering parts to a powered board, with the swing in lead time on the DSP and
+the isolated DC-DC.
+
+### 12.5 Two things that will bite the schedule
+
+**Confirm the converter's low-latency filter mode at datasheet stage, before
+layout.** It is 0.63 ms of the 1.42 ms budget (§7). If the chosen part turns out
+not to offer one, the headline specification fails, and finding that out after
+layout costs a re-spin.
+
+**The 545 mm board may not fit the assembler's machine.** A number of common
+placement machines top out around 508 mm of board length; long-rail machines go to
+610 mm and beyond, but not every contract manufacturer has one. Confirm this
+before layout, because the obvious fix — splitting the board — is exactly what
+§11.2 says not to do, and would put element position back into assembly tolerance.
+
+If no long-rail assembler is available, the cheap escape is to pull the outer
+element pair in from ±12 to ±11 grid units. Measured cost:
+
+| Outer pair | Aperture | Board | Mean DI | DI @ 250 Hz | Room-noise gain |
+|---|---|---|---|---|---|
+| ±12 grid | 513.6 mm | ~544 mm | 9.54 dB | 2.59 dB | +6.10 dBA |
+| ±11 grid | 470.8 mm | ~501 mm | 9.47 dB | 2.33 dB | +5.88 dBA |
+| ±10 grid | 428.0 mm | ~458 mm | 9.33 dB | 2.06 dB | +5.65 dBA |
+
+Going to ±11 gets the board under 508 mm for 0.07 dB of mean directivity and
+0.22 dBA of room-noise rejection — cheap, and worth taking if it opens up the
+supplier list. Going to ±10 costs three times as much for another 43 mm. Note this
+is a design change made for a process reason, so make it deliberately and
+early, not as a late fix.
+
+---
+
+## 13. Compute budget
 
 | Block | Cost |
 |---|---|
@@ -647,7 +816,7 @@ latency only because of the group-delay taper in §6.2.
 
 ---
 
-## 13. Reproducing these numbers
+## 14. Reproducing these numbers
 
 ```bash
 pip install numpy
@@ -668,7 +837,7 @@ The script is typed and clean under `mypy --strict`.
 
 ---
 
-## 14. Deliberately out of scope
+## 15. Deliberately out of scope
 
 - **Acoustic echo cancellation.** Needed for any duplex conferencing use. A
   time-domain NLMS AEC adds no latency and would sit between the beamformer and

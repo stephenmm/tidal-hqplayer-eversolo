@@ -137,6 +137,9 @@ td.hi{color:var(--accent);font-weight:600}
 td.cost{color:var(--cost);font-weight:600}
 /* tables of text rather than figures: nothing to line up on the right */
 .tbl.lefty th,.tbl.lefty td{text-align:left}
+/* costed BOM: labels left, money right */
+.tbl.bom th:nth-child(2),.tbl.bom td:nth-child(2){text-align:left}
+.tbl.bom td:nth-child(2){color:var(--body)}
 /* tables whose final column carries prose, not a figure */
 .tbl.notes th:last-child,.tbl.notes td:last-child{text-align:left;
   font-family:var(--display);font-weight:500;color:var(--muted);
@@ -188,7 +191,7 @@ diaphragm to XLR pin&#8239;2.</p>
 <div><span class="num">160<sub>ms</sub></span><small>Talker hand-over</small></div>
 <div><span class="num">+4<sub>dBu</sub></span><small>Balanced output</small></div>
 </div>
-</header><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
+</header><div class="cols"><nav class="toc" aria-label="Contents"><span class="eyebrow">Contents</span><ol><li><a href="#brief">The brief</a></li><li><a href="#limits">What a line array cannot do</a></li><li><a href="#geometry">Geometry</a></li><li><a href="#beamformer">Beamformer</a></li><li><a href="#latency">Latency</a></li><li><a href="#talker">Finding the talker</a></li><li><a href="#noise">Two different gains</a></li><li><a href="#output">Line output</a></li><li><a href="#build">Building it</a></li><li><a href="#cost">Cost and time</a></li></ol></nav><main><section id="brief"><span class="sec-n">&#167;1</span><h2>The brief</h2>
 <p>Three requirements, each of which turns out to force an architectural decision
 rather than a parameter choice.</p>
 <h3>&#8220;Finds the primary talker&#8221;</h3>
@@ -428,8 +431,10 @@ commitment &#8212; particularly the converter filter modes, which are the larges
 term in the budget.</p>
 <h3>Bill of materials</h3>
 <div class="tbl notes lefty"><table><thead><tr><th>Qty</th><th>Block</th><th>Candidate</th><th>Notes</th></tr></thead><tbody><tr><td>16</td><td>Microphone</td><td>Analog MEMS, &#8722;38 dBV/Pa, &#8805;65 dB SNR</td><td>15 in the array, 1 rear-facing; analogue output keeps the decimation filter, and its delay, ours</td></tr><tr><td>16</td><td>Preamp</td><td>Low-noise op-amp, fixed 30 dB, 0.1&#8239;% resistors</td><td>quad packages</td></tr><tr><td>4</td><td>ADC</td><td>4-ch 24-bit TDM, low-latency mode</td><td>distributed along the strip</td></tr><tr><td>1</td><td>DSP</td><td>SHARC+ or xcore.ai class</td><td>329 MMAC/s with headroom, native TDM, 382 kB beam bank</td></tr><tr><td>1</td><td>DAC</td><td>24-bit stereo, low-latency mode</td><td>&#8212;</td></tr><tr><td>1</td><td>Line driver</td><td>THAT 1646 / DRV134</td><td>&#177;12 V rails</td></tr><tr><td>1</td><td>NVM</td><td>I&#178;C EEPROM, &#8805;64 kB</td><td>per-unit calibration coefficients</td></tr><tr><td>1</td><td>PCB</td><td>545 &#215; 45 mm, 4-layer FR4, 1.6 mm</td><td>one board &#8212; see below</td></tr></tbody></table></div>
-<p>Indicative BOM cost is roughly $100&#8211;150 in mid-hundreds volume, dominated by the
-DSP and the microphone count. An order of magnitude, not a quote.</p>
+<p>Costed in full in &#167;10 &#8212; about <strong>$133 factory cost at 1000 units</strong>,
+$198 at 100. An earlier draft put it at $100&#8211;150 in mid-hundreds volume, which was
+optimistic: it counted the electronics and overlooked the PCB and enclosure, which
+together are the largest single group.</p>
 
 <h3>Compute budget</h3>
 <div class="tbl"><table><thead><tr><th>Block</th><th>Cost</th></tr></thead><tbody><tr><td>Beamformer, 2 beams cross-fading (15 &#215; 192 &#215; 48 kHz &#215; 2)</td><td>276.5 MMAC/s</td></tr><tr><td>Per-mic calibration FIR (15 &#215; 7 &#215; 48 kHz)</td><td>5.0 MMAC/s</td></tr><tr><td>SRP-PHAT (105 pairs &#215; 65 beams, 62.5 fps)</td><td>47.8 MMAC/s</td></tr></tbody><tfoot><tr><td>Total</td><td>329.3 MMAC/s &#183; 382 kB coefficients</td></tr></tfoot></table></div>
@@ -532,6 +537,69 @@ measurement then becomes an <em>acceptance test</em> rather than a calibration s
 <p>The first three are the ones that matter for array performance: they are the
 tolerance figures the Monte-Carlo was run at, and a unit outside them is a unit whose
 measured directivity no longer matches this design.</p>
+
+</section><section id="cost"><span class="sec-n">&#167;10</span><h2>Cost and time</h2>
+<p>Every price here is an indicative order-of-magnitude distributor figure, not a
+quote. Good enough to decide whether the product is viable and to see which lines
+dominate; not good enough to commit money against.</p>
+<h3>Costed bill of materials</h3>
+<div class="tbl bom"><table><thead><tr><th>Group</th><th>Item</th><th>Qty</th><th>@1</th><th>@100</th><th>@1k</th><th>Ext. @1k</th></tr></thead><tbody><tr><td>Acoustic</td><td>Analog MEMS microphone, bottom port</td><td>16</td><td>2.60</td><td>1.85</td><td>1.25</td><td>20.00</td></tr><tr><td></td><td>Port gasket + mesh</td><td>16</td><td>0.18</td><td>0.09</td><td>0.05</td><td>0.80</td></tr><tr><td>Preamp</td><td>Quad low-noise op-amp</td><td>4</td><td>2.40</td><td>1.65</td><td>1.20</td><td>4.80</td></tr><tr><td></td><td>Gain resistors, 0.1% 0402</td><td>32</td><td>0.09</td><td>0.03</td><td>0.02</td><td>0.51</td></tr><tr><td></td><td>Signal-path caps, C0G/film</td><td>32</td><td>0.14</td><td>0.07</td><td>0.04</td><td>1.44</td></tr><tr><td></td><td>Bias + decoupling passives</td><td>56</td><td>0.03</td><td>0.01</td><td>0.01</td><td>0.34</td></tr><tr><td>Convert</td><td>4-channel 24-bit TDM ADC</td><td>4</td><td>6.20</td><td>4.60</td><td>3.60</td><td>14.40</td></tr><tr><td></td><td>ADC support passives + AA filters</td><td>88</td><td>0.03</td><td>0.01</td><td>0.01</td><td>0.53</td></tr><tr><td></td><td>Low-jitter 24.576 MHz oscillator</td><td>1</td><td>3.40</td><td>2.30</td><td>1.70</td><td>1.70</td></tr><tr><td></td><td>Stereo 24-bit DAC</td><td>1</td><td>5.60</td><td>4.10</td><td>3.20</td><td>3.20</td></tr><tr><td>DSP</td><td>SHARC+ / xcore.ai class DSP</td><td>1</td><td>28.00</td><td>20.00</td><td>14.50</td><td>14.50</td></tr><tr><td></td><td>QSPI boot flash, 16 Mb</td><td>1</td><td>1.10</td><td>0.72</td><td>0.52</td><td>0.52</td></tr><tr><td></td><td>I2C EEPROM 64 kB (calibration)</td><td>1</td><td>0.60</td><td>0.40</td><td>0.28</td><td>0.28</td></tr><tr><td></td><td>DSP support passives</td><td>64</td><td>0.03</td><td>0.01</td><td>0.01</td><td>0.38</td></tr><tr><td>Output</td><td>Balanced line driver</td><td>1</td><td>4.80</td><td>3.40</td><td>2.60</td><td>2.60</td></tr><tr><td></td><td>DC-block film caps + output network</td><td>16</td><td>0.22</td><td>0.12</td><td>0.08</td><td>1.28</td></tr><tr><td></td><td>Phantom protection (TVS, series R, clamps)</td><td>12</td><td>0.11</td><td>0.05</td><td>0.03</td><td>0.36</td></tr><tr><td>Power</td><td>Isolated +/-12 V DC-DC, 2 W</td><td>1</td><td>11.00</td><td>8.20</td><td>6.30</td><td>6.30</td></tr><tr><td></td><td>Low-noise analogue LDO</td><td>4</td><td>1.00</td><td>0.68</td><td>0.48</td><td>1.92</td></tr><tr><td></td><td>Digital buck converter</td><td>1</td><td>1.80</td><td>1.20</td><td>0.85</td><td>0.85</td></tr><tr><td></td><td>Digital LDO</td><td>1</td><td>0.45</td><td>0.28</td><td>0.19</td><td>0.19</td></tr><tr><td></td><td>Bulk caps, inductors, ferrites</td><td>62</td><td>0.06</td><td>0.03</td><td>0.02</td><td>1.12</td></tr><tr><td>Connector</td><td>XLR male panel connector</td><td>1</td><td>3.60</td><td>2.60</td><td>1.95</td><td>1.95</td></tr><tr><td></td><td>RCA jack</td><td>1</td><td>0.90</td><td>0.58</td><td>0.40</td><td>0.40</td></tr><tr><td></td><td>DC input jack</td><td>1</td><td>1.10</td><td>0.70</td><td>0.48</td><td>0.48</td></tr><tr><td></td><td>Debug / programming header</td><td>1</td><td>0.55</td><td>0.30</td><td>0.20</td><td>0.20</td></tr><tr><td>PCB</td><td>545 x 45 mm 4-layer ENIG (245 cm^2)</td><td>1</td><td>62.00</td><td>19.00</td><td>11.50</td><td>11.50</td></tr><tr><td>Mech</td><td>Extruded alu enclosure, machined ports</td><td>1</td><td>78.00</td><td>41.00</td><td>26.00</td><td>26.00</td></tr><tr><td></td><td>End caps, mounts, fasteners, damping</td><td>1</td><td>14.00</td><td>7.50</td><td>4.80</td><td>4.80</td></tr></tbody></table></div>
+<div class="tbl"><table><thead><tr><th>Group</th><th>@1</th><th>@100</th><th>@1000</th></tr></thead><tbody><tr><td>Acoustic</td><td>44.48</td><td>31.04</td><td>20.80</td></tr><tr><td>Preamp</td><td>18.64</td><td>10.47</td><td>7.09</td></tr><tr><td>Converters</td><td>36.44</td><td>25.86</td><td>19.83</td></tr><tr><td>DSP</td><td>31.62</td><td>21.89</td><td>15.68</td></tr><tr><td>Output</td><td>9.64</td><td>5.92</td><td>4.24</td></tr><tr><td>Power</td><td>20.97</td><td>14.26</td><td>10.38</td></tr><tr><td>Connectors</td><td>6.15</td><td>4.18</td><td>3.03</td></tr><tr><td>PCB</td><td>62.00</td><td>19.00</td><td class="cost">11.50</td></tr><tr><td>Mechanical</td><td>92.00</td><td>48.50</td><td class="cost">30.80</td></tr></tbody><tfoot><tr><td>BOM total</td><td>321.94</td><td>181.12</td><td>123.35</td></tr></tfoot></table></div>
+<h3>Factory cost</h3>
+<div class="tbl"><table><thead><tr><th></th><th>@1</th><th>@100</th><th>@1000</th></tr></thead><tbody><tr><td>BOM</td><td>321.94</td><td>181.12</td><td>123.35</td></tr><tr><td>Assembly</td><td>&#8212;</td><td>9.50</td><td>5.80</td></tr><tr><td>Test and calibration</td><td>&#8212;</td><td>7.00</td><td>4.20</td></tr></tbody><tfoot><tr><td>Factory cost</td><td>321.94</td><td>197.62</td><td>133.35</td></tr></tfoot></table></div>
+<p>Three observations worth acting on. <strong>Mechanical and PCB are the largest
+group, not the electronics</strong> &#8212; at 1000 they are $42 of $123, a third of the
+BOM, and both are driven by one number: the 513.6&#8239;mm aperture. Any cost-reduction
+conversation starts there. <strong>The DSP is the largest single line</strong> at
+$14.50, but it needs no external RAM, because the 382&#8239;kB beam bank fits in on-chip
+SRAM on both candidates; an architecture that spilled to DDR would add the memory, the
+routing and a layer or two of stack. And <strong>the isolated &#177;12&#8239;V supply is
+$6.30 for one function</strong> &#8212; it exists only to feed the balanced driver, so if
+the product can ship unbalanced-only that line and its post-filtering disappear.</p>
+
+<h3>Engineering effort</h3>
+<div class="tbl"><table><thead><tr><th>Discipline</th><th>Person-weeks</th></tr></thead><tbody><tr><td>Electrical &#8212; schematic, layout, bring-up</td><td>8.0</td></tr><tr><td>Mechanical &#8212; enclosure, ports, mounts</td><td>4.5</td></tr><tr><td>DSP and firmware</td><td>13.5</td></tr><tr><td>Test &#8212; calibration rig, validation, automation</td><td>10.5</td></tr><tr><td>DFM review, documentation, release</td><td>2.0</td></tr></tbody><tfoot><tr><td>Total</td><td>38.5 pw &#8776; 8.9 person-months</td></tr></tfoot></table></div>
+<p>Elapsed time runs longer than effort over headcount, because validation cannot start
+before boards exist. With three people (1 EE, 1.5 DSP/FW, 0.5 ME) and one board spin:</p>
+<div class="tbl lefty"><table><thead><tr><th>Weeks</th><th>Phase</th></tr></thead><tbody><tr><td>1&#8211;5</td><td>Schematic and layout; mechanical in parallel; DSP plumbing on an eval board</td></tr><tr><td>6&#8211;8</td><td>Fab and assembly turn</td></tr><tr><td>9&#8211;13</td><td>Bring-up, DSP integration, calibration fixture build</td></tr><tr><td>14&#8211;17</td><td>Board spin and second turn</td></tr><tr><td>18&#8211;24</td><td>Acoustic validation, calibration flow, acceptance automation, DFM and docs</td></tr></tbody></table></div>
+<p><strong>Roughly 5 to 6 months to a validated first article.</strong> One caveat in
+the estimate&#8217;s favour: the beamformer design is already done &#8212; filter synthesis,
+parameter selection and verification are all in the tool. That is normally the
+highest-risk item on a schedule like this, because &#8220;tune the array until it sounds
+right&#8221; is an unbounded loop. Starting without it, add 8&#8211;10 person-weeks and
+considerably more schedule risk than that suggests.</p>
+
+<h3>Per-unit build time</h3>
+<div class="tbl"><table><thead><tr><th>Step</th><th>Time</th></tr></thead><tbody><tr><td>Placement, ~400 parts</td><td>1&#8211;2 min machine</td></tr><tr><td>Reflow and AOI</td><td>inline</td></tr><tr><td>Connector and enclosure assembly, gaskets, mesh</td><td>8&#8211;11 min</td></tr><tr><td>Calibration, 16-cavity coupler, one sweep</td><td>40&#8211;60 s</td></tr><tr><td>Acceptance test, automated</td><td>90&#8211;120 s</td></tr><tr><td>Pack</td><td>1&#8211;2 min</td></tr></tbody><tfoot><tr><td>Touch labour</td><td>12&#8211;16 min/unit</td></tr></tfoot></table></div>
+<p>A hundred units is roughly 22&#8211;27 hours of labour. The calibration step assumes a
+fixture that seals all sixteen ports at once against a common plenum and measures every
+channel in one sweep; done sequentially with a single coupler it is five minutes a unit
+and becomes the bottleneck.</p>
+<div class="callout"><span class="eyebrow">You cannot hand-build a prototype</span>
+<p>MEMS microphones are damaged by hand soldering, cannot be ultrasonically cleaned, and
+need controlled reflow with MSL handling. Even a one-off needs a stencil and a proper
+profile. Allow 4&#8211;6 weeks from ordering parts to a powered board, with the lead-time
+swing on the DSP and the isolated DC-DC.</p></div>
+
+<h3>Two things that will bite the schedule</h3>
+<p><strong>Confirm the converter&#8217;s low-latency filter mode at datasheet stage,
+before layout.</strong> It is 0.63&#8239;ms of the 1.42&#8239;ms budget. If the chosen part
+does not offer one the headline specification fails, and finding out after layout costs a
+re-spin.</p>
+<p><strong>The 545&#8239;mm board may not fit the assembler&#8217;s machine.</strong> A
+number of common placement machines top out around 508&#8239;mm; long-rail machines reach
+610&#8239;mm and beyond, but not every contract manufacturer has one. Confirm before
+layout, because the obvious fix &#8212; splitting the board &#8212; is exactly what the
+tolerance argument forbids, and would put element position back into assembly
+tolerance.</p>
+<p>If no long-rail assembler is available, the cheap escape is to pull the outer element
+pair in from &#177;12 to &#177;11 grid units:</p>
+<div class="tbl"><table><thead><tr><th>Outer pair</th><th>Aperture</th><th>Board</th><th>Mean DI</th><th>DI @ 250 Hz</th><th>Room-noise gain</th></tr></thead><tbody><tr><td>&#177;12 grid</td><td>513.6 mm</td><td>~544 mm</td><td>9.54 dB</td><td>2.59 dB</td><td>+6.10 dBA</td></tr><tr><td>&#177;11 grid</td><td>470.8 mm</td><td class="hi">~501 mm</td><td>9.47 dB</td><td>2.33 dB</td><td>+5.88 dBA</td></tr><tr><td>&#177;10 grid</td><td>428.0 mm</td><td>~458 mm</td><td>9.33 dB</td><td>2.06 dB</td><td>+5.65 dBA</td></tr></tbody></table></div>
+<p>&#177;11 gets the board under 508&#8239;mm for 0.07&#8239;dB of mean directivity and
+0.22&#8239;dBA of room-noise rejection &#8212; cheap, and worth taking if it opens up the
+supplier list. &#177;10 costs three times as much for another 43&#8239;mm. This is a design
+change made for a process reason, so make it deliberately and early, not as a late
+fix.</p>
 
 <h3>Deliberately out of scope</h3>
 <ul>
