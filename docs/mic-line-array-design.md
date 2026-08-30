@@ -11,6 +11,110 @@ from idealised frequency-domain weights.
 
 ---
 
+## Glossary and concepts
+
+This document accumulated a lot of jargon. Everything it uses, in one place.
+
+![Signal flow inside the reSpeaker XVF3800](schematics/flow.svg)
+
+*The whole confusion in one picture. Two streams, opposite directions: the
+**beam** is your voice heading out to the far end, the **far end** is their voice
+heading into your room. The loudspeaker sits on the far-end path, which is why
+the jack cannot be made to carry the beam. The 58 ms sits in the microphone
+direction only. The bottom lane is what you could build — and why it does not
+help with the delay.*
+
+### The two directions: beam and far end
+
+Almost all the confusion about this hardware comes from one idea, so it is worth
+being slow about it. A conferencing device handles **two separate audio streams
+travelling in opposite directions**:
+
+- **Near end** — your room. You, talking.
+- **Far end** — the person at the other end of the call. Their voice arrives from
+  the computer and gets played out of the loudspeaker into your room.
+- **Beam** — the output of the beamformer: the microphone signal after the array
+  has been electronically focused on whoever is talking. This is *your* audio, on
+  its way *out* to the far end.
+
+So the loudspeaker plays the **far end**, and the microphones produce the
+**beam**. They are different signals going opposite ways. The reSpeaker's
+3.5 mm jack is on the loudspeaker side, which is why it plays the far end and
+cannot be made to carry the beam.
+
+The **echo canceller** (AEC) is why the two are coupled at all. Your microphones
+inevitably pick up your own loudspeaker, and the far-end listener would hear
+themselves echo. So the chip subtracts the loudspeaker signal from the
+microphones — and to subtract it accurately it needs an exact copy, called the
+**reference**. That is why the far-end signal must be the thing feeding the DAC:
+the reference and the sound in the room have to match.
+
+### "If far end processing on device is implemented"
+
+XMOS's latency table lists 58 ms for the microphone direction and 50 ms for the
+far-end direction, with that condition attached to the second one.
+
+It means: the chip *can optionally* process the far-end audio before playing it —
+equalisation, dynamics, that sort of thing — and a product designer chooses
+whether to switch that on. If they do, the playback direction gains about 50 ms
+of delay. Seeed leaves it off (`AUDIO_MGR_FAR_END_DSP_ENABLE` defaults to 0), so
+on this board the playback path is a straight pass-through and stays quick. The
+50 ms does not apply, and it never adds to the 58 ms in any case — different
+signal, different direction.
+
+### Terms
+
+| Term | What it means |
+|---|---|
+| **Beam / beamforming** | Combining several microphones so the array listens in one direction and rejects others. The "beam" is the resulting single-channel output. |
+| **Beamformer** | The filter set that does it. |
+| **Near end / far end** | Your room / the other end of the call. |
+| **AEC** | Acoustic Echo Canceller — subtracts the loudspeaker from the microphones. |
+| **Reference** | The exact copy of the loudspeaker signal the AEC subtracts. |
+| **AGC** | Automatic Gain Control — keeps output level steady as talkers vary. |
+| **VAD** | Voice Activity Detection — is anyone speaking right now. |
+| **DoA** | Direction of Arrival — which way the sound came from. |
+| **SRP-PHAT** | The specific DoA method here: steer in every direction, see which gives the most energy, with a phase-only weighting that makes it robust to reverberation. |
+| **DI** (directivity index) | How much the array rejects noise arriving from all directions at once, in dB. Higher is better. |
+| **WNG** (white-noise gain) | How the array treats noise that is *uncorrelated* between microphones — mainly the microphones' own hiss. Can go negative, meaning the array makes it worse. |
+| **Superdirective** | Squeezing more directivity out of a small array than simple delay-and-sum gives, by exploiting the fact that noise is correlated between closely-spaced mics. Costs white-noise gain. |
+| **Delay-and-sum** | The simplest beamformer: delay each mic so the wanted direction lines up, then add. |
+| **Diffuse field** | Sound arriving equally from all directions — a good model for room noise and reverberation. |
+| **Aperture** | The physical length of the array. Directivity at low frequency depends almost entirely on this. |
+| **Broadside / endfire** | Perpendicular to the array / along its axis. |
+| **Steering** | Pointing the beam. |
+| **Grating lobe / spatial aliasing** | When microphones are spaced more than half a wavelength apart, the array develops a second unwanted "ear" pointing somewhere else. |
+| **λ (wavelength)** | Sound's wavelength: 343 m/s ÷ frequency. 8 kHz is 43 mm; 250 Hz is 1.37 m. |
+| **Group delay** | How long a signal takes to get through a filter, which can differ per frequency. |
+| **FIR** | Finite Impulse Response — a filter built by summing delayed copies of the input. What this design's beamformer is made of. |
+| **PDM** | Pulse Density Modulation — the 1-bit, very-high-rate format digital MEMS microphones output. |
+| **PCM** | Pulse Code Modulation — ordinary numbered samples. What PDM gets converted into. |
+| **I2S** | A simple 3-wire digital audio bus between chips on one board. Carries PCM. |
+| **TDM** | Time Division Multiplexing — I2S widened so many channels share one data wire in numbered slots. |
+| **MCLK / BCLK / LRCLK (FSYNC)** | Master clock / bit clock / left-right or frame clock — the timing signals an I2S or TDM bus needs. |
+| **ADC / DAC** | Analogue-to-digital / digital-to-analogue converter. |
+| **Codec** | One chip containing both. |
+| **UAC2** | USB Audio Class 2.0 — the standard that lets an audio device work without drivers. |
+| **Sample rate** | Samples per second. 16 kHz carries audio up to 8 kHz; 48 kHz up to 24 kHz. |
+| **Nyquist** | The rule behind that: you can represent frequencies up to half the sample rate. |
+| **Balanced / unbalanced** | Two signal wires in antiphase, so interference picked up equally on both cancels / one signal wire and a ground. XLR is balanced, RCA is not. |
+| **Line level** | The standard signal strength between audio equipment. +4 dBu (1.23 V) professional, −10 dBV (0.32 V) consumer. Mic level is roughly a thousand times smaller. |
+| **dBu / dBV** | Decibels relative to 0.775 V / relative to 1 V. Both measure voltage. |
+| **dBFS** | Decibels relative to digital full scale. Always negative; 0 dBFS is clipping. |
+| **dBA** | Sound level weighted to match how the ear responds, used for noise figures. |
+| **dB SPL** | Sound pressure level. 45 dBA is a quiet room, 65 dB SPL a normal talker, 120 dB SPL painful. |
+| **Sensitivity (dBV/Pa)** | How much voltage a microphone gives for a given sound pressure. |
+| **SNR** | Signal-to-noise ratio. |
+| **PSRR** | Power Supply Rejection Ratio — how well a part ignores noise on its power rail. |
+| **AOP** | Acoustic Overload Point — the loudest sound a microphone handles before distorting. |
+| **Phantom power** | 48 V that mixing desks send *up* the microphone cable. Outputs must survive it being applied by mistake. |
+| **Class-D** | A switching amplifier, efficient enough to drive a loudspeaker without a heatsink. |
+| **MEMS** | Micro Electro-Mechanical System — a microphone etched onto a silicon chip. |
+| **Haas effect** | Below roughly 30 ms, a delayed copy of a sound is heard as part of the original rather than as an echo. Why latency matters for loudspeakers in the same room. |
+| **Reverberation / dereverberation** | Room echo / processing that reduces it. |
+
+---
+
 ## Programme at a glance
 
 | Phase | Build | Cost | Time | What it retires |
@@ -154,6 +258,59 @@ of it: the TLV320AIC3104's headphone drivers are 30 mW into 16 Ω, about
 0.69 Vrms, with separate differential line outputs specified into 10 kΩ. That is
 a perfectly usable consumer line level — −10 dBV nominal is 0.316 Vrms — so had
 it carried the beam it would have been genuinely useful. It carries the far end.
+
+### Could you tap I2S and drive an XLR yourself?
+
+Short answer: **yes, and it is a good idea — but it does not fix the 58 ms.**
+
+One correction to the premise first. PDM is the format going *into* the XVF3800
+from the microphones — 1-bit at a very high rate. It is not what comes out. What
+comes out is **PCM over I2S**, ordinary numbered samples on a three-wire bus,
+which is exactly what you want, because every cheap I2S DAC speaks it.
+
+In the I2S ("INT") firmware, `I2S_DATA1` carries the processed beam out of the
+chip on a physical pin. That is the signal the jack cannot give you, available in
+digital form. So:
+
+```
+XVF3800  ──I2S DATA1──►  I2S DAC  ──►  balanced line driver  ──►  XLR
+          (the beam)      PCM5102A       THAT 1646 / DRV134
+```
+
+This is genuinely breadboard-friendly, and far easier than the 24.576 MHz clocking
+in §14.3. At 16 kHz, stereo, 32-bit, the bit clock is about **1.0 MHz** — 3.1 MHz
+if you use the 48 kHz firmware. Both are comfortable on jumper wire, unlike the
+545 mm board this design needs. A PCM5102A breakout is a few dollars and needs no
+master clock, so the parts count is: one DAC board, one line driver, a couple of
+resistors.
+
+**What it buys you.** A standalone unit with a real balanced output and no
+computer in the audio path. That removes the USB round trip and the host
+buffering — the 68 ms loopback drops to about 58 ms.
+
+**What it does not buy you.** The 58 ms itself, which happens inside the XVF3800
+*upstream* of the tap. Nothing downstream can remove it.
+
+Two things to check before ordering parts:
+
+1. **Who is the clock master.** In the USB configuration the XVF3800 drives I2S
+   as master; in the INT configuration it is normally a slave to the host MCU. If
+   it is a slave, something has to generate the bit and frame clocks for your DAC
+   — the simplest fix is to keep a small MCU in the role, or configure the
+   XVF3800 as master if the firmware permits.
+2. **Physical access.** On the XIAO variant the I2S lines already run to the
+   ESP32-S3 on GPIO43/44, which is the easy tap point. On the plain USB board you
+   would need to find the pins and load the INT firmware.
+
+There is an even simpler version on the XIAO board: the ESP32-S3 is *already*
+receiving the beam over I2S, so you can have it forward those samples straight to
+an I2S DAC. That is a firmware change plus a five-dollar DAC board, with no
+tapping at all.
+
+So the honest summary: this is a nice way to get a clean balanced output from a
+cheap array, and if 58 ms is acceptable for your application it is a much better
+plan than building §11. If 58 ms is not acceptable, the tap does not help, because
+the delay is not in the part you would be replacing.
 
 ### The question that decides it
 
