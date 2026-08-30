@@ -955,7 +955,69 @@ different experiments.
 
 ---
 
-## 14. Compute budget
+## 14. Schematics
+
+Section-level, not board-level: enough to review the topology and the values the
+analysis actually determines, with the parts that still need detailed design left
+visible as blocks rather than pretended into existence. Sources are in
+[`docs/schematics/`](schematics/).
+
+### 14.1 Microphone channel, one of sixteen
+
+![Microphone channel schematic](schematics/mic.svg)
+
+Gain is fixed at 30 dB — no per-channel VGA, because the array depends on channel
+matching and a variable stage is a matching liability for no benefit here. The
+op-amp is chosen for supply current and matching rather than noise: the capsule's
+own 60 nV/√Hz dominates so completely that a 10 nV/√Hz part adds 0.11 dB (§11.4).
+
+**One open item.** The schematic drives the ADC single-ended. If the chosen
+converter has no single-ended input mode, each channel needs a second op-amp to
+drive it differentially — four more quad packages, about $5 at 1000, which the
+bill of materials in §12.1 does not yet carry. Settle this when the converter is
+selected, alongside the low-latency filter mode of §12.5.
+
+### 14.2 Proof-of-concept channel
+
+![Proof-of-concept channel schematic](schematics/poc.svg)
+
+The one to build first. Everything is hand-solderable, and the two things that
+defeat a breadboard — the MEMS capsule and the 24.576 MHz clock domain — are
+absent by construction: an electret replaces the first, a bought audio interface
+replaces the second (§13.1).
+
+### 14.3 Digital section
+
+![Digital section schematic](schematics/digital.svg)
+
+One clock domain, one TDM bus. The four converters share MCLK and LRCLK, so
+sample instants are simultaneous even though the bus is serial and there is no
+inter-channel skew to correct — verify that at bring-up rather than assuming it
+(§11.6). Clocks are fanned out through series terminations and never
+daisy-chained: at 24.576 MHz a 545 mm board is a transmission line.
+
+### 14.4 Output section
+
+![Output section schematic](schematics/output.svg)
+
+Each leg swings ±4.35 V peak at the +18 dBu clip point, not ±8.7 — the
+differential voltage is split between two legs in antiphase — which is why ±12 V
+rails suffice (§10.2). The clamp network is not optional: a console configured
+wrongly will apply 48 V of phantom power to these pins.
+
+### 14.5 Power tree
+
+![Power tree schematic](schematics/power.svg)
+
+Microphone PSRR is only about −60 dB, so ripple on the analogue rail lands almost
+directly in the audio. Everything the microphones and preamps touch is linearly
+regulated, the switchers are confined to the digital side, and the line-driver
+supply is post-filtered because a 100–500 kHz converter is out of band but its
+harmonics are not (§11.3).
+
+---
+
+## 15. Compute budget
 
 | Block | Cost |
 |---|---|
@@ -972,7 +1034,7 @@ latency only because of the group-delay taper in §6.2.
 
 ---
 
-## 15. Reproducing these numbers
+## 16. Reproducing these numbers
 
 ```bash
 pip install numpy
@@ -993,7 +1055,7 @@ The script is typed and clean under `mypy --strict`.
 
 ---
 
-## 16. Deliberately out of scope
+## 17. Deliberately out of scope
 
 - **Acoustic echo cancellation.** Needed for any duplex conferencing use. A
   time-domain NLMS AEC adds no latency and would sit between the beamformer and
