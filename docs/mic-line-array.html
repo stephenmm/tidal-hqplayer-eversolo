@@ -319,9 +319,35 @@ this design needs: at 16&#8239;kHz stereo the bit clock is about <strong>1.0&#82
 (3.1&#8239;MHz on the 48&#8239;kHz firmware). Both are comfortable on jumper wire. A PCM5102A
 breakout is a few dollars and needs no master clock.</p>
 <div class="tbl notes lefty"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>What it buys you</td><td>A standalone unit with a real balanced output and no computer in the audio path. The 68 ms loopback drops to about 58 ms.</td></tr><tr><td>What it does not</td><td>The 58 ms itself, which happens inside the XVF3800 upstream of the tap. Nothing downstream can remove it.</td></tr><tr><td>Check first: clock master</td><td>In USB configuration the XVF3800 is I2S master; in INT it is normally slave to the host MCU. If slave, something must generate bit and frame clocks for your DAC.</td></tr><tr><td>Check first: pin access</td><td>On the XIAO variant the I2S lines already run to the ESP32-S3 on GPIO43/44 &#8212; the easy tap point. On the plain USB board you would need to find the pins and load INT firmware.</td></tr></tbody></table></div>
-<p>There is an even simpler version on the XIAO board: the ESP32-S3 is <em>already</em>
-receiving the beam over I2S, so you can have it forward those samples straight to an I2S
-DAC. A firmware change plus a five-dollar DAC board, with no tapping at all.</p>
+<h3>Two routes on the XIAO board, and a trap in one of them</h3>
+<p>On the XIAO variant the ESP32-S3 may be able to drive the <strong>onboard</strong> DAC
+and get audio out of the existing 3.5&#8239;mm jack with no added hardware at all. The
+reason is the INT-mode signal assignment: <code>DATA0</code> is <em>input from host</em>,
+<code>DATA1</code> is <em>output to host</em>, <code>DATA2</code> is <em>optional output to
+DAC</em>. So the ESP32-S3 receives the beam on <code>DATA1</code>, and whatever it sends
+back on <code>DATA0</code> becomes the far-end signal &#8212; which is what the XVF3800
+forwards to the DAC. Loop one to the other in firmware and the beam comes out of the
+jack.</p>
+<div class="callout"><span class="eyebrow">The trap</span>
+<p>That loop hands the echo canceller its own output. The AEC&#8217;s job is to subtract the
+far-end reference from the microphones. If the reference <em>is</em> the beam, and the beam
+comes from those same microphones, the adaptive filter sees a perfectly correlated signal
+and converges on cancelling the talker &#8212; doing exactly what it is designed to do, with
+the result that your voice disappears. Disabling the AEC is presumably possible, but it is
+a strange way to use a chip whose main feature is its echo canceller.</p></div>
+<div class="tbl notes lefty"><table><thead><tr><th></th><th>Hardware</th><th>Output</th><th>Catch</th></tr></thead><tbody><tr><td>A. Loop through the XVF3800</td><td>none</td><td>onboard jack / speaker</td><td class="cost">feeds the AEC its own output</td></tr><tr><td>B. ESP32 second I2S &#8594; external DAC</td><td>~$5 DAC + line driver</td><td class="hi">your own XLR</td><td>none in the chip; ordinary PA feedback still applies</td></tr></tbody></table></div>
+<p><strong>B is the one to prefer.</strong> The ESP32-S3 has two I2S controllers, so the
+second can drive a PCM5102A while the first keeps talking to the XVF3800. Nothing is fed
+back into the voice pipeline, so the AEC is never confused, and you get a proper balanced
+output instead of a headphone jack.</p>
+<p>Three things unverified, and this document has been wrong about this device before.
+Whether <code>DATA2</code> is actually populated to the codec on Seeed&#8217;s board rather
+than the codec hanging off the ESP32&#8217;s own bus &#8212; if it is the latter, route A has
+no AEC problem at all and is simply the right answer. Whether the AEC can be disabled. And
+which end masters the I2S clocks in INT configuration. All three are settled by an hour with
+the board and a scope, not by more reading.</p>
+<p>And once more: neither route touches the 58&#8239;ms. Route A adds the ESP32&#8217;s
+buffering on top of it, route B a DAC&#8217;s worth. The floor is the same.</p>
 <p>So: a nice way to get a clean balanced output from a cheap array. If 58&#8239;ms is
 acceptable for your application, it is a much better plan than building the design in this
 document. If it is not, the tap does not help &#8212; the delay is not in the part you would

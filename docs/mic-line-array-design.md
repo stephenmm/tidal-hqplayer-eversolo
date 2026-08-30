@@ -302,10 +302,50 @@ Two things to check before ordering parts:
    ESP32-S3 on GPIO43/44, which is the easy tap point. On the plain USB board you
    would need to find the pins and load the INT firmware.
 
-There is an even simpler version on the XIAO board: the ESP32-S3 is *already*
-receiving the beam over I2S, so you can have it forward those samples straight to
-an I2S DAC. That is a firmware change plus a five-dollar DAC board, with no
-tapping at all.
+#### Two routes on the XIAO board, and a trap in one of them
+
+The sentence above meant an *external* DAC, but there is a second route worth
+setting out, because on the XIAO variant the ESP32-S3 may be able to drive the
+**onboard** DAC and get audio out of the existing 3.5 mm jack with no added
+hardware at all.
+
+The reason is the INT-mode signal assignment. In the integrated configuration the
+three I2S data lines are: `DATA0` **input from host**, `DATA1` **output to host**,
+`DATA2` **optional output to DAC**. So the ESP32-S3 receives the beam on `DATA1`,
+and whatever it sends back on `DATA0` becomes the far-end signal — which is what
+the XVF3800 forwards to the DAC. Loop one to the other in ESP32 firmware and the
+beam comes out of the jack.
+
+**But that loop hands the echo canceller its own output.** The AEC's job is to
+subtract the far-end reference from the microphones. If the reference *is* the
+beam, and the beam is derived from those same microphones, the adaptive filter
+sees a perfectly correlated signal and converges on cancelling the talker. It
+would be doing exactly what it is designed to do, and the result is that your
+voice disappears. Disabling the AEC is presumably possible via a control command,
+but that is not verified, and it is a strange way to use a chip whose main feature
+is its echo canceller.
+
+So the two routes are:
+
+| | Hardware | Output | Catch |
+|---|---|---|---|
+| **A. Loop through the XVF3800** | none | onboard jack / speaker | feeds the AEC its own output; must disable AEC |
+| **B. ESP32's second I2S → external DAC** | ~$5 DAC + line driver | your own XLR | none in the chip; ordinary PA feedback still applies |
+
+**B is the one to prefer.** The ESP32-S3 has two I2S controllers, so the second
+can drive a PCM5102A while the first keeps talking to the XVF3800. Nothing is fed
+back into the voice pipeline, so the AEC is never confused, and you get a proper
+balanced output instead of a headphone jack.
+
+Three things unverified, and I have been wrong about this device before. Whether
+`DATA2` is actually populated to the codec on Seeed's board rather than the codec
+hanging off the ESP32's own bus — if it is the latter, route A has no AEC problem
+at all and is simply the right answer. Whether the AEC can be disabled. And which
+end masters the I2S clocks in INT configuration. All three are settled by an hour
+with the board and a scope, not by more reading.
+
+And once more: neither route touches the 58 ms. Route A adds the ESP32's
+buffering on top of it, route B adds a DAC's worth. The floor is the same.
 
 So the honest summary: this is a nice way to get a clean balanced output from a
 cheap array, and if 58 ms is acceptable for your application it is a much better
