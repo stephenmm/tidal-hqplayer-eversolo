@@ -1,0 +1,6 @@
+{
+  "targetZone": "Eversolo T8",
+  "port": 8088,
+  "secret": "change-me-to-a-long-random-string",
+  "fuzzyThreshold": 0.5
+}

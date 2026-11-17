@@ -389,6 +389,7 @@
   <div class="status-bar">
     <div id="tip-tidal" title="Tidal: logged in and ready to stream"><span class="dot" id="dot-tidal"></span><span id="lbl-tidal">tidal</span></div>
     <div id="tip-hqp" title="HQPlayer: reachable on localhost:4321"><span class="dot" id="dot-hqp"></span><span id="lbl-hqp">hqplayer</span></div>
+    <div id="tip-naa" title="Eversolo T8: HQPlayer output device connected"><span class="dot" id="dot-naa"></span><span id="lbl-naa">eversolo</span></div>
     <div id="tip-gpu" title="NVIDIA GPU compute utilization · memory · temperature"><span class="dot" id="dot-gpu"></span><span id="lbl-gpu">gpu</span></div>
   </div>
 </header>
@@ -455,6 +456,8 @@
       <option value="">rate…</option>
     </select>
     <button class="btn" id="btn-apply-rate" onclick="doSetRate()" title="Apply rate and restart HQPlayer">Apply</button>
+    <div class="transport-sep"></div>
+    <button class="btn" onclick="location.reload(true)" title="Hard-reload the page (clears browser cache)">Reload Page</button>
   </div>
 </footer>
 
@@ -591,7 +594,23 @@ async function loadPlaylist(pl) {
 
 async function doSearch(q) {
   if (!q.trim()) return;
-  const res = await api(`/tidal/search?q=${encodeURIComponent(q)}&limit=25`);
+  const trackPane = document.getElementById('track-pane');
+  const listPane  = document.getElementById('list-pane');
+  trackPane.innerHTML = '<div class="empty-state">Searching…</div>';
+  listPane.innerHTML  = '';
+  let res;
+  try {
+    res = await api(`/tidal/search?q=${encodeURIComponent(q)}&limit=25`);
+  } catch (e) {
+    trackPane.innerHTML = `<div class="empty-state" style="color:var(--danger,#e55)">Search failed: ${esc(e.message)}</div>`;
+    listPane.innerHTML  = '';
+    return;
+  }
+  if (!res.tracks.length && !res.albums.length) {
+    trackPane.innerHTML = `<div class="empty-state">No results for "${esc(q)}"</div>`;
+    listPane.innerHTML  = '';
+    return;
+  }
   setTracks(res.tracks, `Results for "${q}"`, `${res.tracks.length} tracks · ${res.albums.length} albums`);
   renderList(res.albums, (a) => ({
     title: a.title,
@@ -833,11 +852,27 @@ function startStatusPoll() {
     updateTidalDot(s.tidal_logged_in);
     await loadQueueState();
     if (!s.hqplayer.error) {
+      const rates = await api('/hqplayer/rates').catch(() => []);
+      updateNaaDot(rates);
       const sel = document.getElementById('rate-select');
-      if (sel.options.length <= 1) await loadRates();
+      if (sel.options.length <= 1) loadRates();
+    } else {
+      updateNaaDot([]);
     }
     api('/gpu').then(updateGpuStatus).catch(() => null);
   }, 2000);
+}
+
+function updateNaaDot(rates) {
+  const dot = document.getElementById('dot-naa');
+  const tip = document.getElementById('tip-naa');
+  if (rates && rates.length) {
+    dot.className = 'dot on';
+    tip.title = `Eversolo T8: connected — ${rates.length} output rates available`;
+  } else {
+    dot.className = 'dot err';
+    tip.title = 'Eversolo T8: not connected to HQPlayer';
+  }
 }
 
 function updateGpuStatus(g) {

@@ -23,3 +23,8 @@ htmlcov/
 # IDE / tooling
 .claude/
 *.zip
+
+# roon-tidal-voice: dependencies, the real config (holds the shared secret), logs
+node_modules/
+roon-tidal-voice/config.json
+*-log.txt

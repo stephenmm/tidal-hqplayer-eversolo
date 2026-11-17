@@ -194,12 +194,12 @@ def _monitor_loop() -> None:
             continue
 
         if state != prev_state:
-            print(f"[monitor] state {prev_state}→{state}  current={current}  user_stopped={user_stopped}", flush=True)
+            print(f"[monitor] state {prev_state}->{state}  current={current}  user_stopped={user_stopped}", flush=True)
 
         if prev_state == 2 and state == 0 and not user_stopped and current is not None:
             next_idx = _next_index()
             if next_idx is not None:
-                print(f"[monitor] auto-advance → {next_idx}", flush=True)
+                print(f"[monitor] auto-advance -> {next_idx}", flush=True)
                 threading.Thread(target=_do_play, args=(next_idx,), daemon=True).start()
             else:
                 print("[monitor] end of queue — stopping HQPlayer", flush=True)

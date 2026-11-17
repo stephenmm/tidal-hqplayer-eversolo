@@ -1,0 +1,67 @@
+<TaskerData sr="" dvi="1" tv="6.3.13">
+	<Task sr="task101">
+		<cdate>1751831000000</cdate>
+		<edate>1751831000000</edate>
+		<id>101</id>
+		<nme>Roon Dispatch</nme>
+		<pri>100</pri>
+		<Action sr="act0" ve="7">
+			<code>377</code>
+			<Str sr="arg0" ve="3">Quick launch</Str>
+			<Str sr="arg1" ve="3"/>
+			<Str sr="arg2" ve="3">📷 Camera</Str>
+			<Str sr="arg3" ve="3">🎵 Voice</Str>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="15"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+		</Action>
+		<Action sr="act1" ve="7">
+			<code>37</code>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%td_button</lhs>
+					<op>2</op>
+					<rhs>*Camera*</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act2" ve="7">
+			<code>20</code>
+			<App sr="arg0">
+				<appClass>com.sec.android.app.camera.Camera</appClass>
+				<appPkg>com.sec.android.app.camera</appPkg>
+				<label>Camera</label>
+			</App>
+			<Str sr="arg1" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+		</Action>
+		<Action sr="act3" ve="7">
+			<code>43</code>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%td_button</lhs>
+					<op>2</op>
+					<rhs>*Voice*</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act4" ve="7">
+			<code>130</code>
+			<Str sr="arg0" ve="3">Roon Voice</Str>
+			<Int sr="arg1" val="5"/>
+			<Str sr="arg2" ve="3"/>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3"/>
+			<Int sr="arg5" val="0"/>
+			<Str sr="arg6" ve="3"/>
+			<Str sr="arg7" ve="3"/>
+			<Int sr="arg8" val="0"/>
+		</Action>
+		<Action sr="act5" ve="7">
+			<code>38</code>
+		</Action>
+	</Task>
+</TaskerData>
